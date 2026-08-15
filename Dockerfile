@@ -7,6 +7,9 @@ RUN apt-get update \
     ca-certificates ffmpeg file gh jpegoptim libimage-exiftool-perl optipng util-linux webp \
   && rm -rf /var/lib/apt/lists/*
 
+RUN groupadd --gid 10001 sago-media \
+  && useradd --uid 10001 --gid 10001 --no-create-home --shell /usr/sbin/nologin sago-media
+
 WORKDIR /app
 
 COPY --chmod=755 scripts/pr-media-optimize /usr/local/bin/pr-media-optimize
@@ -20,4 +23,5 @@ ENV PR_MEDIA_ROOT=/srv/pr-media
 ENV PR_MEDIA_MAX_VIDEO_BYTES=95000000
 
 EXPOSE 3000
+USER 10001:10001
 CMD ["bun", "/app/server.ts"]

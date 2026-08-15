@@ -10,6 +10,7 @@ const tokenDirectory = process.env.PR_MEDIA_TOKEN_DIR ?? "/run/secrets/pr-media-
 const uploadCommand = process.env.PR_MEDIA_UPLOAD_COMMAND ?? "/usr/local/bin/pr-media-upload";
 const baseUrl = (process.env.PR_MEDIA_BASE_URL ?? "").replace(/\/$/, "");
 const publicUrl = (process.env.MEDIA_PUBLIC_URL ?? baseUrl).replace(/\/$/, "");
+const publicOrigin = (() => { try { return new URL(publicUrl).origin; } catch { return ""; } })();
 const githubClientId = process.env.MEDIA_GITHUB_CLIENT_ID ?? "";
 const githubClientSecret = process.env.MEDIA_GITHUB_CLIENT_SECRET ?? "";
 const ownerGithubId = process.env.MEDIA_OWNER_GITHUB_ID ?? "";
@@ -86,7 +87,7 @@ function json(value: unknown, status = 200) {
 }
 
 function html(body: string, status = 200) {
-  return response(`<!doctype html><meta name="viewport" content="width=device-width"><title>Sago Share</title><style>body{font:16px system-ui;max-width:720px;margin:64px auto;padding:0 24px;color:#18181b}main{display:grid;gap:16px}article{border:1px solid #ddd;border-radius:12px;padding:16px}button,a.button{background:#18181b;color:white;border:0;border-radius:8px;padding:10px 14px;text-decoration:none}code{background:#f4f4f5;padding:2px 6px;border-radius:4px}</style><main>${body}</main>`, status, { "Content-Type": "text/html; charset=utf-8" });
+  return response(`<!doctype html><meta name="viewport" content="width=device-width"><title>Sago Media</title><style>body{font:16px system-ui;max-width:720px;margin:64px auto;padding:0 24px;color:#18181b}main{display:grid;gap:16px}article{border:1px solid #ddd;border-radius:12px;padding:16px}button,a.button{background:#18181b;color:white;border:0;border-radius:8px;padding:10px 14px;text-decoration:none}code{background:#f4f4f5;padding:2px 6px;border-radius:4px}</style><main>${body}</main>`, status, { "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'", "Content-Type": "text/html; charset=utf-8" });
 }
 
 function cleanExpired() {
@@ -238,7 +239,7 @@ async function finishGithubOAuth(url: URL) {
   const tokenResponse = await fetch("https://github.com/login/oauth/access_token", { method: "POST", headers: { Accept: "application/json", "Content-Type": "application/json" }, body: JSON.stringify({ client_id: githubClientId, client_secret: githubClientSecret, code }) });
   const accessToken = (await tokenResponse.json() as { access_token?: string }).access_token;
   if (!accessToken) return response("GitHub login failed.\n", 502);
-  const githubResponse = await fetch("https://api.github.com/user", { headers: { Accept: "application/vnd.github+json", Authorization: `Bearer ${accessToken}`, "User-Agent": "sago-share" } });
+  const githubResponse = await fetch("https://api.github.com/user", { headers: { Accept: "application/vnd.github+json", Authorization: `Bearer ${accessToken}`, "User-Agent": "sago-media" } });
   const user = await githubResponse.json() as { id?: number; login?: string };
   if (!user.id || !user.login) return response("Could not read GitHub identity.\n", 502);
   const githubId = String(user.id);
@@ -265,15 +266,21 @@ function adminAuthorized(request: Request) {
   return Boolean(database.query("SELECT 1 FROM sessions WHERE token_hash = ? AND github_id = ? AND expires_at > ?").get(digest(cookie), ownerGithubId, now()));
 }
 
+function bootstrapAuthorized(request: Request) {
+  const bearer = /^Bearer (.+)$/.exec(request.headers.get("authorization") ?? "")?.[1];
+  return Boolean(bootstrapAdminToken && bearer && safeEqual(digest(bearer), digest(bootstrapAdminToken)));
+}
+
 function adminPage(request: Request) {
-  if (!adminAuthorized(request)) return html('<h1>Sago Share</h1><p><a class="button" href="/admin/login">Sign in with GitHub</a></p>', 401);
+  if (!adminAuthorized(request)) return html('<h1>Sago Media</h1><p><a class="button" href="/admin/login">Sign in with GitHub</a></p>', 401);
   const pending = database.query("SELECT id, device_name, github_login, created_at FROM auth_requests WHERE status = 'pending_approval' ORDER BY created_at").all() as Array<Record<string, string>>;
   const credentials = database.query("SELECT id, github_login, device_name, scope, last_used_at FROM credentials WHERE revoked_at IS NULL ORDER BY created_at DESC").all() as Array<Record<string, string>>;
-  return html(`<h1>Sago Share</h1><h2>Pending access</h2>${pending.length ? pending.map((item) => `<article><strong>${escapeHtml(item.github_login)}</strong> · ${escapeHtml(item.device_name)}<form method="post" action="/admin/requests/${item.id}/approve"><button>Approve PR uploads</button></form><form method="post" action="/admin/requests/${item.id}/deny"><button>Deny</button></form></article>`).join("") : "<p>No pending requests.</p>"}<h2>Devices</h2>${credentials.map((item) => `<article><strong>${escapeHtml(item.github_login)}</strong> · ${escapeHtml(item.device_name)} · <code>${item.scope}</code><form method="post" action="/admin/credentials/${item.id}/revoke"><button>Revoke</button></form></article>`).join("") || "<p>No devices.</p>"}`);
+  return html(`<h1>Sago Media</h1><h2>Pending access</h2>${pending.length ? pending.map((item) => `<article><strong>${escapeHtml(item.github_login)}</strong> · ${escapeHtml(item.device_name)}<form method="post" action="/admin/requests/${item.id}/approve"><button>Approve PR uploads</button></form><form method="post" action="/admin/requests/${item.id}/deny"><button>Deny</button></form></article>`).join("") : "<p>No pending requests.</p>"}<h2>Devices</h2>${credentials.map((item) => `<article><strong>${escapeHtml(item.github_login)}</strong> · ${escapeHtml(item.device_name)} · <code>${item.scope}</code><form method="post" action="/admin/credentials/${item.id}/revoke"><button>Revoke</button></form></article>`).join("") || "<p>No devices.</p>"}`);
 }
 
 function adminMutation(request: Request, pathname: string) {
   if (!adminAuthorized(request)) return response("Unauthorized.\n", 401);
+  if (!bootstrapAuthorized(request) && request.headers.get("origin") !== publicOrigin) return response("Cross-origin administration is forbidden.\n", 403);
   const approval = /^\/admin\/requests\/([^/]+)\/(approve|deny)$/.exec(pathname);
   if (approval) {
     database.query("UPDATE auth_requests SET status = ? WHERE id = ? AND status = 'pending_approval'").run(approval[2] === "approve" ? "approved" : "denied", approval[1]);
@@ -289,7 +296,9 @@ function adminMutation(request: Request, pathname: string) {
 
 Bun.serve({ port, async fetch(request) {
   const url = new URL(request.url);
-  if (request.method === "GET" && url.pathname === "/health") return response("ok\n");
+  if (request.method === "GET" && url.pathname === "/health") {
+    return baseUrl && publicOrigin && githubClientId && githubClientSecret && ownerGithubId ? response("ok\n") : response("configuration incomplete\n", 503);
+  }
   if (request.method === "POST" && url.pathname === "/api/upload") return upload(request, true);
   if (request.method === "POST" && url.pathname === "/v1/uploads") return upload(request, false);
   if (request.method === "POST" && url.pathname === "/v1/auth/device") return createDeviceRequest(request);
@@ -307,4 +316,3 @@ Bun.serve({ port, async fetch(request) {
   if (request.method === "POST" && url.pathname.startsWith("/admin/")) return adminMutation(request, url.pathname);
   return response("Not found.\n", 404);
 } });
-

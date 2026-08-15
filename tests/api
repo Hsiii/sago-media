@@ -41,6 +41,7 @@ PORT="$port" \
 PR_MEDIA_ROOT="$work_dir/media" \
 PR_MEDIA_TOKEN_DIR="$work_dir/tokens" \
 PR_MEDIA_UPLOAD_COMMAND="$fake_uploader" \
+PR_MEDIA_BASE_URL=https://media.example.test \
 PR_MEDIA_DAILY_BYTES_PER_TOKEN=1000 \
 PR_MEDIA_DAILY_UPLOADS_PER_TOKEN=1 \
 PR_MEDIA_MAX_REQUEST_BYTES=1000 \
@@ -112,4 +113,14 @@ status="$(
 
 usage="$(bun -e 'import { Database } from "bun:sqlite"; const db = new Database(process.argv[1]); console.log(db.query("SELECT uploads FROM usage WHERE actor = ?").get("legacy-friend").uploads)' "$work_dir/media/.service/media.sqlite")"
 [ "$usage" = 1 ]
-printf 'Media API supports device login, scoped uploads, and bounded quotas\n'
+
+session='test-session-abcdefghijklmnopqrstuvwxyz-0123456789'
+session_digest="$(printf '%s' "$session" | sha256sum | awk '{print $1}')"
+bun -e 'import { Database } from "bun:sqlite"; const db = new Database(process.argv[1]); db.query("INSERT INTO sessions(token_hash, github_id, expires_at) VALUES (?, ?, ?)").run(process.argv[2], "1", new Date(Date.now() + 60000).toISOString())' "$work_dir/media/.service/media.sqlite" "$session_digest"
+
+status="$(curl --silent --output "$work_dir/cross-origin" --write-out '%{http_code}' --request POST --header "Cookie: media_session=$session" --header 'Origin: https://attacker.example' "http://127.0.0.1:$port/admin/requests/missing/deny")"
+[ "$status" = 403 ]
+status="$(curl --silent --output "$work_dir/same-origin" --write-out '%{http_code}' --request POST --header "Cookie: media_session=$session" --header "Origin: http://127.0.0.1:$port" "http://127.0.0.1:$port/admin/requests/missing/deny")"
+[ "$status" = 303 ]
+
+printf 'Media API supports device login, scoped uploads, bounded quotas, and same-origin administration\n'
