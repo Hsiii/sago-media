@@ -3,11 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "workspaces": ["cli"],
+  "workspaces": [
+    "cli"
+  ],
   "scripts": {
     "build": "bun build server.ts --target=bun --outfile=dist/server.js",
     "check": "bun run test && bun run build && npm pack --dry-run --workspace cli",
-    "release": "release-it --config release-it.config.cjs",
+    "release": "cd cli && release-it --config ../release-it.config.cjs",
     "test": "bash tests/api && bash tests/pipeline",
     "pack:cli": "npm pack --workspace cli"
   },

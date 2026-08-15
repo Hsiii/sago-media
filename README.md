@@ -34,15 +34,18 @@ docker build -t sago-media .
 
 ## Release
 
-Update both package versions in a pull request and merge it first. From a clean
-`main`, release the already-merged version:
+Sign in to npm locally, then release from a clean `main`:
 
 ```bash
+npm login
 GITHUB_TOKEN="$(gh auth token)" bun run release -- 0.1.0
 ```
 
-The release command does not commit or push `main`. It publishes the CLI, pushes
-only `v0.1.0`, and creates the GitHub release. Tagged releases also publish the
+Release-it bumps both package versions, runs the checks, creates the release
+commit and tag, publishes the CLI, and creates the GitHub release. If npm
+requires two-factor authentication, release-it prompts for the OTP. The
+repository ruleset allows only the repository owner to bypass the pull-request
+requirement for this release push. Tagged releases also publish the
 multi-architecture container image.
 
 Infrastructure repositories should deploy the published container image and
