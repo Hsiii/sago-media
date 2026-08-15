@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+server="$repo_root/server.ts"
+work_dir="$(mktemp -d)"
+server_pid=
+
+cleanup() {
+  if [ -n "$server_pid" ]; then
+    kill "$server_pid" 2>/dev/null || true
+    wait "$server_pid" 2>/dev/null || true
+  fi
+  rm -rf -- "$work_dir"
+}
+trap cleanup EXIT
+
+token='test-token-abcdefghijklmnopqrstuvwxyz-0123456789'
+token_digest="$(printf '%s' "$token" | sha256sum | awk '{print $1}')"
+install -d "$work_dir/media" "$work_dir/tokens"
+printf '%s\n' "$token_digest" >"$work_dir/tokens/friend"
+
+fake_uploader="$work_dir/fake-uploader"
+printf '%s\n' \
+  '#!/bin/sh' \
+  'if [ "$#" = 1 ]; then [ -s "$1" ]; else' \
+  '  [ "$1" = "--repo" ] && [ "$2" = "Hsiii/example" ]' \
+  '  [ "$3" = "--pr" ] && [ "$4" = "42" ] && [ -s "$5" ]' \
+  'fi' \
+  'printf "![PR preview](https://media.example.test/test.png)\\n"' \
+  >"$fake_uploader"
+chmod +x "$fake_uploader"
+
+source_file="$work_dir/preview.png"
+printf '%s' \
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=' |
+  base64 --decode >"$source_file"
+
+port="$((41000 + RANDOM % 20000))"
+PORT="$port" \
+PR_MEDIA_ROOT="$work_dir/media" \
+PR_MEDIA_TOKEN_DIR="$work_dir/tokens" \
+PR_MEDIA_UPLOAD_COMMAND="$fake_uploader" \
+PR_MEDIA_DAILY_BYTES_PER_TOKEN=1000 \
+PR_MEDIA_DAILY_UPLOADS_PER_TOKEN=1 \
+PR_MEDIA_MAX_REQUEST_BYTES=1000 \
+MEDIA_PUBLIC_URL="http://127.0.0.1:$port" \
+MEDIA_GITHUB_CLIENT_ID=test-client \
+MEDIA_GITHUB_CLIENT_SECRET=test-secret \
+MEDIA_OWNER_GITHUB_ID=1 \
+  bun "$server" >"$work_dir/server.log" 2>&1 &
+server_pid="$!"
+
+for _ in 1 2 3 4 5; do
+  if curl --fail --silent "http://127.0.0.1:$port/health" >/dev/null; then
+    break
+  fi
+  sleep 1
+done
+curl --fail --silent "http://127.0.0.1:$port/health" >/dev/null
+
+device_json="$(curl --fail --silent --request POST --header 'Content-Type: application/json' --data '{"deviceName":"Test Mac"}' "http://127.0.0.1:$port/v1/auth/device")"
+device_id="$(bun -e 'console.log(JSON.parse(process.argv[1]).deviceCode)' "$device_json")"
+device_secret="$(bun -e 'console.log(JSON.parse(process.argv[1]).deviceSecret)' "$device_json")"
+user_code="$(bun -e 'console.log(JSON.parse(process.argv[1]).userCode)' "$device_json")"
+curl --fail --silent --header "Authorization: Device $device_secret" "http://127.0.0.1:$port/v1/auth/device/$device_id" | grep -Fq '"status":"waiting_for_login"'
+curl --fail --silent "http://127.0.0.1:$port/activate?code=$user_code" | grep -Fq 'Continue with GitHub'
+
+status="$(
+  curl --silent --output "$work_dir/unauthorized" --write-out '%{http_code}' \
+    --request POST \
+    --header 'X-PR-Media-Repo: Hsiii/example' \
+    --header 'X-PR-Media-PR: 42' \
+    --header 'X-PR-Media-Filename: preview.png' \
+    --data-binary "@$source_file" \
+    "http://127.0.0.1:$port/api/upload"
+)"
+[ "$status" = 401 ]
+
+status="$(
+  curl --silent --output "$work_dir/uploaded" --write-out '%{http_code}' \
+    --request POST \
+    --header "Authorization: Bearer $token" \
+    --header 'X-PR-Media-Repo: Hsiii/example' \
+    --header 'X-PR-Media-PR: 42' \
+    --header 'X-PR-Media-Filename: preview.png' \
+    --data-binary "@$source_file" \
+    "http://127.0.0.1:$port/api/upload"
+)"
+[ "$status" = 201 ]
+grep -Fqx '![PR preview](https://media.example.test/test.png)' \
+  "$work_dir/uploaded"
+
+owner_token='owner-token-abcdefghijklmnopqrstuvwxyz-0123456789'
+owner_digest="$(printf '%s' "$owner_token" | sha256sum | awk '{print $1}')"
+bun -e 'import { Database } from "bun:sqlite"; const db = new Database(process.argv[1]); db.query("INSERT INTO credentials(id, token_hash, github_id, github_login, device_name, scope, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)").run("owner", process.argv[2], "1", "owner", "Test Mac", "upload:any", new Date().toISOString())' "$work_dir/media/.service/media.sqlite" "$owner_digest"
+status="$(curl --silent --output "$work_dir/standalone" --write-out '%{http_code}' --request POST --header "Authorization: Bearer $owner_token" --header 'X-Media-Filename: preview.png' --data-binary "@$source_file" "http://127.0.0.1:$port/v1/uploads")"
+[ "$status" = 201 ]
+grep -Fq '"url":"https://media.example.test/test.png"' "$work_dir/standalone"
+
+status="$(
+  curl --silent --output "$work_dir/quota" --write-out '%{http_code}' \
+    --request POST \
+    --header "Authorization: Bearer $token" \
+    --header 'X-PR-Media-Repo: Hsiii/example' \
+    --header 'X-PR-Media-PR: 42' \
+    --header 'X-PR-Media-Filename: preview.png' \
+    --data-binary "@$source_file" \
+    "http://127.0.0.1:$port/api/upload"
+)"
+[ "$status" = 429 ]
+
+usage="$(bun -e 'import { Database } from "bun:sqlite"; const db = new Database(process.argv[1]); console.log(db.query("SELECT uploads FROM usage WHERE actor = ?").get("legacy-friend").uploads)' "$work_dir/media/.service/media.sqlite")"
+[ "$usage" = 1 ]
+printf 'Media API supports device login, scoped uploads, and bounded quotas\n'

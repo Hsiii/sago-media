@@ -1,0 +1,11 @@
+{
+  "name": "hsiii-media",
+  "private": true,
+  "type": "module",
+  "workspaces": ["cli"],
+  "scripts": {
+    "build": "bun build server.ts --target=bun --outfile=dist/server.js",
+    "test": "bash tests/api && bash tests/pipeline",
+    "pack:cli": "npm pack --workspace cli"
+  }
+}

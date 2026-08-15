@@ -1,0 +1,15 @@
+{
+  "name": "@hsiii/media",
+  "version": "0.1.0",
+  "description": "Upload files to media.hsichen.dev",
+  "type": "module",
+  "bin": {
+    "media": "media.js"
+  },
+  "files": ["media.js"],
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT"
+}
+

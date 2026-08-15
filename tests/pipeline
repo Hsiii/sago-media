@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+uploader="$root/scripts/pr-media-upload"
+pruner="$root/scripts/pr-media-prune"
+pin="$root/scripts/pr-media-pin"
+verify="$root/scripts/pr-media-verify"
+work="$(mktemp -d)"
+trap 'rm -rf -- "$work"' EXIT
+
+media="$work/media"
+source="$work/preview.png"
+printf '%s' 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=' | base64 --decode >"$source"
+digest="$(sha256sum "$source" | awk '{print $1}')"
+
+output="$(PR_MEDIA_ROOT="$media" PR_MEDIA_BASE_URL=https://media.example.test PR_MEDIA_PRUNE_COMMAND="$pruner" PR_MEDIA_OPTIMIZE=0 PR_MEDIA_USED_PERCENT=0 "$uploader" "$source")"
+[ "$output" = "![PR preview](https://media.example.test/${digest:0:2}/$digest.png)" ]
+[ -f "$media/${digest:0:2}/$digest.png" ]
+
+PR_MEDIA_ROOT="$media" PR_MEDIA_BASE_URL=https://media.example.test PR_MEDIA_PRUNE_COMMAND="$pruner" PR_MEDIA_OPTIMIZE=0 PR_MEDIA_USED_PERCENT=0 "$uploader" --repo Hsiii/example --pr 42 "$source" >/dev/null
+[ -f "$media/.refs/$digest/Hsiii/example/42" ]
+
+PR_MEDIA_ROOT="$media" "$pin" "$media/${digest:0:2}/$digest.png" >/dev/null
+[ -f "$media/.pins/$digest" ]
+PR_MEDIA_ROOT="$media" "$pin" --remove "$media/${digest:0:2}/$digest.png" >/dev/null
+[ ! -e "$media/.pins/$digest" ]
+
+PR_MEDIA_ROOT="$media" "$verify" >/dev/null
+printf corrupted >>"$media/${digest:0:2}/$digest.png"
+if PR_MEDIA_ROOT="$media" "$verify" >/dev/null 2>&1; then
+  printf 'verification accepted corrupted media\n' >&2
+  exit 1
+fi
+
+printf 'Media pipeline validates, references, pins, and verifies objects\n'
