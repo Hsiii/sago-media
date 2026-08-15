@@ -1,19 +1,34 @@
 # Sago Media
 
-The product behind `media.hsichen.dev`: authenticated uploads, GitHub-backed
-device approval, media processing and retention, and the `sago-media` CLI.
+Upload screenshots, recordings, and other media for pull requests without
+committing binaries to the repository. Sago Media provides reusable share
+links, approval-based access, media processing, and an `npx` CLI for agents and
+contributors.
 
-## Clients
+## Quick start
 
 ```bash
-npx sago-media@0.1.0 auth login
-npx sago-media@0.1.0 upload screenshot.png
-npx sago-media@0.1.0 upload screenshot.png --repo Hsiii/example --pr 42 --output markdown
+npx sago-media auth login
+npx sago-media upload recording.mov \
+  --repo Hsiii/example \
+  --pr 42 \
+  --output markdown
 ```
 
-Friends receive `upload:pr` access after owner approval. The owner's GitHub
-identity receives `upload:any`. Credentials are delivered once and stored only
-as hashes by the service.
+Login opens `media.hsichen.dev` in the browser. New devices enter an approval
+queue; after the owner approves one, the CLI stores its credential locally.
+Friends receive access to PR uploads, while the owner's GitHub identity can
+also make general-purpose uploads. The service stores credential hashes, not
+the credentials themselves.
+
+## Other clients
+
+- The [Sago Media Mac app](https://github.com/Hsiii/sago-media-macos)
+  provides quick personal uploads for links that can be pasted into Discord or
+  elsewhere.
+- `npx sago-media upload <path>` creates a general-purpose share link when the
+  authenticated identity has permission.
+- The admin dashboard handles access requests and upload activity.
 
 ## Configuration
 
@@ -31,6 +46,10 @@ The GitHub OAuth callback is `$MEDIA_PUBLIC_URL/auth/github/callback`.
 - `web/` contains the Vite and React admin dashboard.
 - `cli/` contains the published `sago-media` command.
 - `scripts/` contains the media processing pipeline.
+
+This repository owns the application, clients, and media processing behavior.
+Deployment repositories only provide the published container with storage,
+routing, secrets, health checks, and schedules.
 
 Run both development servers together:
 
@@ -65,7 +84,3 @@ authentication and two-factor challenges can complete. The repository ruleset
 allows only the repository owner to bypass the pull-request requirement for
 this release push. Tagged releases also publish the multi-architecture
 container image.
-
-Infrastructure repositories should deploy the published container image and
-provide storage, routing, secrets, health checks, and schedules. They should
-not contain this repository's application or client source.
