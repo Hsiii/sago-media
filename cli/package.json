@@ -1,6 +1,6 @@
 {
   "name": "sago-media",
-  "version": "0.1.0",
+  "version": "0.0.0",
   "description": "Upload files to media.hsichen.dev",
   "keywords": ["media", "upload", "github", "pull-request"],
   "type": "module",
