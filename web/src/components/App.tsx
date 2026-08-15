@@ -45,7 +45,11 @@ export function App(): JSX.Element {
         const unauthorized = dashboard.error.message === 'unauthorized';
         return (
             <main className='error-page'>
-                <span className='brand-mark'>SM</span>
+                <img
+                    alt='Sago Media'
+                    className='brand-mark'
+                    src='/admin/favicon.png'
+                />
                 <h1>
                     {unauthorized
                         ? 'Your session expired'

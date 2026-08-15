@@ -5,7 +5,7 @@ export function Sidebar(): JSX.Element {
     return (
         <aside className='sidebar'>
             <div className='sidebar__team'>
-                <span className='brand-mark'>SM</span>
+                <img alt='' className='brand-mark' src='/admin/favicon.png' />
                 <span>Sago Media</span>
             </div>
             <nav aria-label='Dashboard' className='sidebar__nav'>
