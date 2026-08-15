@@ -20,6 +20,9 @@ token_digest="$(printf '%s' "$token" | sha256sum | awk '{print $1}')"
 install -d "$work_dir/media" "$work_dir/tokens"
 printf '%s\n' "$token_digest" >"$work_dir/tokens/friend"
 
+install -d "$work_dir/media/.service"
+bun -e 'import { Database } from "bun:sqlite"; const db = new Database(process.argv[1]); db.exec("CREATE TABLE credentials (id TEXT PRIMARY KEY, token_hash TEXT NOT NULL UNIQUE, github_id TEXT NOT NULL, github_login TEXT NOT NULL, device_name TEXT NOT NULL, scope TEXT NOT NULL, created_at TEXT NOT NULL, last_used_at TEXT, revoked_at TEXT)"); const insert = db.query("INSERT INTO credentials(id, token_hash, github_id, github_login, device_name, scope, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)"); insert.run("mac-1", "hash-1", "1", "owner", "Hsi\u0027s MacBook Air (darwin)", "upload:any", "2026-01-01T00:00:00.000Z"); insert.run("mac-2", "hash-2", "1", "owner", "Hsi\u0027s MacBook Air", "upload:any", "2026-01-02T00:00:00.000Z"); insert.run("mac-3", "hash-3", "1", "owner", "Hsi\u0027s MacBook Air", "upload:any", "2026-01-03T00:00:00.000Z"); insert.run("mac-4", "hash-4", "1", "owner", "Hsi\u0027s MacBook Air", "upload:any", "2026-01-04T00:00:00.000Z")' "$work_dir/media/.service/media.sqlite"
+
 fake_uploader="$work_dir/fake-uploader"
 printf '%s\n' \
   '#!/bin/sh' \
@@ -62,6 +65,9 @@ for _ in 1 2 3 4 5; do
 done
 curl --fail --silent "http://127.0.0.1:$port/health" >/dev/null
 
+device_counts="$(bun -e 'import { Database } from "bun:sqlite"; const db = new Database(process.argv[1]); const active = db.query("SELECT COUNT(*) AS count FROM credentials WHERE revoked_at IS NULL").get().count; const revoked = db.query("SELECT COUNT(*) AS count FROM credentials WHERE revoked_at IS NOT NULL").get().count; const name = db.query("SELECT device_name FROM credentials WHERE revoked_at IS NULL").get().device_name; console.log(`${active}:${revoked}:${name}`)' "$work_dir/media/.service/media.sqlite")"
+[ "$device_counts" = "1:3:Hsi's MacBook Air" ]
+
 [ "$(curl --silent --output /dev/null --write-out '%{http_code}' "http://127.0.0.1:$port/admin/")" = 401 ]
 
 curl --silent --dump-header "$work_dir/github-headers" --output /dev/null "http://127.0.0.1:$port/admin/login"
@@ -69,12 +75,16 @@ grep -Fiq 'location: https://github.com/login/oauth/authorize?' "$work_dir/githu
 grep -Fq 'client_id=test-client' "$work_dir/github-headers"
 grep -Fq "redirect_uri=http%3A%2F%2F127.0.0.1%3A$port%2Fauth%2Fgithub%2Fcallback" "$work_dir/github-headers"
 
-device_json="$(curl --fail --silent --request POST --header 'Content-Type: application/json' --data '{"deviceName":"Test Mac"}' "http://127.0.0.1:$port/v1/auth/device")"
+device_json="$(curl --fail --silent --request POST --header 'Content-Type: application/json' --data "{\"deviceName\":\"Hsi's MacBook Air (darwin)\"}" "http://127.0.0.1:$port/v1/auth/device")"
 device_id="$(bun -e 'console.log(JSON.parse(process.argv[1]).deviceCode)' "$device_json")"
 device_secret="$(bun -e 'console.log(JSON.parse(process.argv[1]).deviceSecret)' "$device_json")"
 user_code="$(bun -e 'console.log(JSON.parse(process.argv[1]).userCode)' "$device_json")"
 curl --fail --silent --header "Authorization: Device $device_secret" "http://127.0.0.1:$port/v1/auth/device/$device_id" | grep -Fq '"status":"waiting_for_login"'
 curl --fail --silent "http://127.0.0.1:$port/activate?code=$user_code" | grep -Fq 'Continue with GitHub'
+bun -e 'import { Database } from "bun:sqlite"; const db = new Database(process.argv[1]); db.query("UPDATE auth_requests SET github_id = ?, github_login = ?, status = ? WHERE id = ?").run("1", "owner", "approved", process.argv[2])' "$work_dir/media/.service/media.sqlite" "$device_id"
+curl --fail --silent --header "Authorization: Device $device_secret" "http://127.0.0.1:$port/v1/auth/device/$device_id" | grep -Fq '"status":"approved"'
+rotated_counts="$(bun -e 'import { Database } from "bun:sqlite"; const db = new Database(process.argv[1]); const active = db.query("SELECT COUNT(*) AS count FROM credentials WHERE revoked_at IS NULL AND device_key = ?").get("hsi\u0027s macbook air").count; const revoked = db.query("SELECT COUNT(*) AS count FROM credentials WHERE revoked_at IS NOT NULL AND device_key = ?").get("hsi\u0027s macbook air").count; console.log(`${active}:${revoked}`)' "$work_dir/media/.service/media.sqlite")"
+[ "$rotated_counts" = "1:4" ]
 
 status="$(
   curl --silent --output "$work_dir/unauthorized" --write-out '%{http_code}' \
@@ -103,14 +113,14 @@ grep -Fqx '![PR preview](https://media.example.test/test.png)' \
 
 owner_token='owner-token-abcdefghijklmnopqrstuvwxyz-0123456789'
 owner_digest="$(printf '%s' "$owner_token" | sha256sum | awk '{print $1}')"
-bun -e 'import { Database } from "bun:sqlite"; const db = new Database(process.argv[1]); db.query("INSERT INTO credentials(id, token_hash, github_id, github_login, device_name, scope, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)").run("owner", process.argv[2], "1", "owner", "Test Mac", "upload:any", new Date().toISOString())' "$work_dir/media/.service/media.sqlite" "$owner_digest"
+bun -e 'import { Database } from "bun:sqlite"; const db = new Database(process.argv[1]); db.query("INSERT INTO credentials(id, token_hash, github_id, github_login, device_name, device_key, scope, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").run("owner", process.argv[2], "1", "owner", "Test Mac", "test mac", "upload:any", new Date().toISOString())' "$work_dir/media/.service/media.sqlite" "$owner_digest"
 status="$(curl --silent --output "$work_dir/standalone" --write-out '%{http_code}' --request POST --header "Authorization: Bearer $owner_token" --header 'X-Media-Filename: preview.png' --data-binary "@$source_file" "http://127.0.0.1:$port/v1/uploads")"
 [ "$status" = 201 ]
 grep -Fq '"url":"https://media.example.test/test.png"' "$work_dir/standalone"
 
 timeout_token='timeout-token-abcdefghijklmnopqrstuvwxyz-0123456789'
 timeout_digest="$(printf '%s' "$timeout_token" | sha256sum | awk '{print $1}')"
-bun -e 'import { Database } from "bun:sqlite"; const db = new Database(process.argv[1]); db.query("INSERT INTO credentials(id, token_hash, github_id, github_login, device_name, scope, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)").run("timeout", process.argv[2], "1", "owner", "Slow Mac", "upload:any", new Date().toISOString())' "$work_dir/media/.service/media.sqlite" "$timeout_digest"
+bun -e 'import { Database } from "bun:sqlite"; const db = new Database(process.argv[1]); db.query("INSERT INTO credentials(id, token_hash, github_id, github_login, device_name, device_key, scope, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").run("timeout", process.argv[2], "1", "owner", "Slow Mac", "slow mac", "upload:any", new Date().toISOString())' "$work_dir/media/.service/media.sqlite" "$timeout_digest"
 touch "$work_dir/hang"
 status="$(curl --silent --output "$work_dir/timed-out" --write-out '%{http_code}' --request POST --header "Authorization: Bearer $timeout_token" --header 'X-Media-Filename: preview.png' --data-binary "@$source_file" "http://127.0.0.1:$port/v1/uploads")"
 [ "$status" = 504 ]
@@ -138,7 +148,7 @@ session_digest="$(printf '%s' "$session" | sha256sum | awk '{print $1}')"
 bun -e 'import { Database } from "bun:sqlite"; const db = new Database(process.argv[1]); db.query("INSERT INTO sessions(token_hash, github_id, expires_at) VALUES (?, ?, ?)").run(process.argv[2], "1", new Date(Date.now() + 60000).toISOString())' "$work_dir/media/.service/media.sqlite" "$session_digest"
 
 curl --fail --silent --header "Cookie: media_session=$session" "http://127.0.0.1:$port/v1/admin/overview" >"$work_dir/dashboard"
-grep -Fq '"registeredDevices":3' "$work_dir/dashboard"
+grep -Fq '"registeredDevices":4' "$work_dir/dashboard"
 grep -Fq '"storedMediaBytes":0' "$work_dir/dashboard"
 grep -Fq '"history":[' "$work_dir/dashboard"
 
