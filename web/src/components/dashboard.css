@@ -415,18 +415,18 @@
 .pending-row__info span,
 td > strong,
 td > span,
-.device-name strong,
-.device-name span {
+.device-name > div > strong,
+.device-name > div > span {
     display: block;
 }
 .pending-row__info strong,
 td > strong,
-.device-name strong {
+.device-name > div > strong {
     font-weight: var(--fw-medium);
 }
 .pending-row__info span,
 td > span,
-.device-name span {
+.device-name > div > span {
     color: var(--clr-text-muted);
     font-size: var(--fs-label);
 }
