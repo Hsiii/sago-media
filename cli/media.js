@@ -102,7 +102,16 @@ async function upload(args) {
   const extension = extname(sourcePath).slice(1).toLowerCase();
   const headers = { Authorization: `Bearer ${config.token}`, "Content-Type": "application/octet-stream", "X-Media-Filename": `upload.${extension}` };
   if (repo) { headers["X-Media-Repo"] = repo; headers["X-Media-PR"] = pr; }
-  const uploaded = await fetch(`${config.url.replace(/\/$/, "")}/v1/uploads`, { method: "POST", headers, body });
+  let uploaded;
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    uploaded = await fetch(`${config.url.replace(/\/$/, "")}/v1/uploads`, { method: "POST", headers, body });
+    if (uploaded.status !== 429 || uploaded.headers.get("retry-after") === "86400" || attempt === 5) break;
+    const retryAfter = Number(uploaded.headers.get("retry-after") ?? 1);
+    await uploaded.arrayBuffer();
+    const delay = Number.isFinite(retryAfter) && retryAfter >= 0 ? Math.min(retryAfter, 30) * 1000 : 1000;
+    console.error(`Service busy; retrying in ${delay / 1000}s.`);
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, delay));
+  }
   if (!uploaded.ok) throw new Error((await uploaded.text()).trim() || `Upload failed (${uploaded.status})`);
   const result = await uploaded.json();
   console.log(output === "json" ? JSON.stringify(result) : result[output]);

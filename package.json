@@ -4,13 +4,20 @@
   "private": true,
   "type": "module",
   "workspaces": [
-    "cli"
+    "cli",
+    "web"
   ],
   "scripts": {
-    "build": "bun build server.ts --target=bun --outfile=dist/server.js",
-    "check": "bun run test && bun run build && npm pack --dry-run --workspace cli",
+    "dev": "bun run --parallel dev:server dev:web",
+    "dev:server": "bun --watch server/index.ts",
+    "dev:web": "bun run --cwd web dev",
+    "build": "bun run build:web && bun run build:server",
+    "build:server": "bun build server/index.ts --target=bun --outfile=dist/server.js",
+    "build:web": "bun run --cwd web build",
+    "check": "bun run test && bun run check:web && bun run build:server && npm pack --dry-run --workspace cli",
+    "check:web": "bun run --cwd web check",
     "release": "cd cli && release-it --config ../release-it.config.cjs",
-    "test": "bash tests/api && bash tests/pipeline",
+    "test": "bash tests/api && bash tests/cli && bash tests/pipeline",
     "pack:cli": "npm pack --workspace cli"
   },
   "devDependencies": {
