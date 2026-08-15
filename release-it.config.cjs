@@ -1,7 +1,6 @@
 module.exports = {
   git: {
-    commit: false,
-    push: false,
+    commitMessage: "chore: release sago-media v${version}",
     requireBranch: "main",
     tagName: "v${version}",
   },
@@ -10,10 +9,11 @@ module.exports = {
     release: true,
   },
   hooks: {
-    "before:init": "bun run check",
-    "before:git:release":
-      "npm publish ./cli --registry=https://registry.npmjs.org",
-    "before:github:release": "git push origin v${version}",
+    "before:bump": "bun --cwd .. run check",
+    "after:bump": "node ../scripts/sync-release-version.mjs",
+    "before:git:release": "git add ../package.json package.json",
   },
-  npm: false,
+  npm: {
+    allowSameVersion: true,
+  },
 };
