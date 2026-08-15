@@ -2,6 +2,7 @@
   "name": "sago-media",
   "version": "0.1.0",
   "description": "Upload files to media.hsichen.dev",
+  "keywords": ["media", "upload", "github", "pull-request"],
   "type": "module",
   "bin": {
     "sago-media": "media.js"
@@ -10,5 +11,12 @@
   "engines": {
     "node": ">=20"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Hsiii/sago-media.git",
+    "directory": "cli"
+  },
+  "homepage": "https://github.com/Hsiii/sago-media#readme",
+  "bugs": "https://github.com/Hsiii/sago-media/issues",
   "license": "MIT"
 }
