@@ -271,6 +271,10 @@ function bootstrapAuthorized(request: Request) {
   return Boolean(bootstrapAdminToken && bearer && safeEqual(digest(bearer), digest(bootstrapAdminToken)));
 }
 
+function sameOriginAdminRequest(request: Request) {
+  return request.headers.get("origin") === publicOrigin || request.headers.get("sec-fetch-site") === "same-origin";
+}
+
 function adminPage(request: Request) {
   if (!adminAuthorized(request)) return html('<h1>Sago Media</h1><p><a class="button" href="/admin/login">Sign in with GitHub</a></p>', 401);
   const pending = database.query("SELECT id, device_name, github_login, created_at FROM auth_requests WHERE status = 'pending_approval' ORDER BY created_at").all() as Array<Record<string, string>>;
@@ -280,7 +284,7 @@ function adminPage(request: Request) {
 
 function adminMutation(request: Request, pathname: string) {
   if (!adminAuthorized(request)) return response("Unauthorized.\n", 401);
-  if (!bootstrapAuthorized(request) && request.headers.get("origin") !== publicOrigin) return response("Cross-origin administration is forbidden.\n", 403);
+  if (!bootstrapAuthorized(request) && !sameOriginAdminRequest(request)) return response("Cross-origin administration is forbidden.\n", 403);
   const approval = /^\/admin\/requests\/([^/]+)\/(approve|deny)$/.exec(pathname);
   if (approval) {
     database.query("UPDATE auth_requests SET status = ? WHERE id = ? AND status = 'pending_approval'").run(approval[2] === "approve" ? "approved" : "denied", approval[1]);
