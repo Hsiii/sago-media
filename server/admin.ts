@@ -89,6 +89,11 @@ export function dashboardMutation(request: Request, pathname: string) {
     database.query("UPDATE auth_requests SET status = ? WHERE id = ? AND status = 'pending_approval'").run(approval[2] === "approve" ? "approved" : "denied", approval[1]);
     return new Response(null, { status: 204 });
   }
+  const scope = /^\/v1\/admin\/credentials\/([^/]+)\/scope\/(upload:pr|upload:any)$/.exec(pathname);
+  if (scope) {
+    const result = database.query("UPDATE credentials SET scope = ? WHERE id = ? AND revoked_at IS NULL").run(scope[2], scope[1]);
+    return result.changes === 0 ? json({ error: "credential not found" }, 404) : new Response(null, { status: 204 });
+  }
   const revocation = /^\/v1\/admin\/credentials\/([^/]+)\/revoke$/.exec(pathname);
   if (revocation) {
     database.query("UPDATE credentials SET revoked_at = ? WHERE id = ?").run(now(), revocation[1]);
