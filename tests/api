@@ -122,5 +122,9 @@ status="$(curl --silent --output "$work_dir/cross-origin" --write-out '%{http_co
 [ "$status" = 403 ]
 status="$(curl --silent --output "$work_dir/same-origin" --write-out '%{http_code}' --request POST --header "Cookie: media_session=$session" --header "Origin: http://127.0.0.1:$port" "http://127.0.0.1:$port/admin/requests/missing/deny")"
 [ "$status" = 303 ]
+status="$(curl --silent --output "$work_dir/same-origin-private" --write-out '%{http_code}' --request POST --header "Cookie: media_session=$session" --header 'Origin: null' --header 'Sec-Fetch-Site: same-origin' "http://127.0.0.1:$port/admin/requests/missing/deny")"
+[ "$status" = 303 ]
+status="$(curl --silent --output "$work_dir/cross-origin-private" --write-out '%{http_code}' --request POST --header "Cookie: media_session=$session" --header 'Origin: null' --header 'Sec-Fetch-Site: cross-site' "http://127.0.0.1:$port/admin/requests/missing/deny")"
+[ "$status" = 403 ]
 
 printf 'Media API supports device login, scoped uploads, bounded quotas, and same-origin administration\n'
