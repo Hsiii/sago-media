@@ -82,13 +82,10 @@ export function App(): JSX.Element {
 
     return (
         <div className='shell'>
-            <Sidebar concurrentLimit={data.status.concurrentUploadLimit} />
+            <Sidebar />
             <header className='topbar'>
                 <strong>Sago Media</strong>
                 <span>Overview</span>
-                <span className='topbar__status'>
-                    <span className='status-dot' /> All systems operational
-                </span>
             </header>
             <main className='page'>
                 <header className='page-heading' id='overview'>

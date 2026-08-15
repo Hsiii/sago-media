@@ -1,11 +1,7 @@
 import type { JSX } from 'react';
-import { Activity, Database, LayoutDashboard, Monitor } from 'lucide-react';
+import { Database, LayoutDashboard, Monitor } from 'lucide-react';
 
-interface SidebarProps {
-    concurrentLimit: number;
-}
-
-export function Sidebar({ concurrentLimit }: SidebarProps): JSX.Element {
+export function Sidebar(): JSX.Element {
     return (
         <aside className='sidebar'>
             <div className='sidebar__team'>
@@ -23,18 +19,6 @@ export function Sidebar({ concurrentLimit }: SidebarProps): JSX.Element {
                     <Monitor aria-hidden='true' /> Devices
                 </a>
             </nav>
-            <p className='sidebar__label'>Service</p>
-            <nav className='sidebar__nav sidebar__nav--secondary'>
-                <a className='nav-link' href='/health'>
-                    <Activity aria-hidden='true' /> Health
-                </a>
-            </nav>
-            <div className='service-status'>
-                <strong>
-                    <span className='status-dot' /> Operational
-                </strong>
-                <span>{concurrentLimit} concurrent upload slots</span>
-            </div>
         </aside>
     );
 }
