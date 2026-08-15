@@ -38,15 +38,16 @@ Sign in to npm locally, then release from a clean `main`:
 
 ```bash
 npm login
-GITHUB_TOKEN="$(gh auth token)" bun run release -- 0.1.0
+GITHUB_TOKEN="$(gh auth token)" bun run release
 ```
 
-Release-it bumps both package versions, runs the checks, creates the release
-commit and tag, publishes the CLI, and creates the GitHub release. If npm
-requires two-factor authentication, release-it prompts for the OTP. The
-repository ruleset allows only the repository owner to bypass the pull-request
-requirement for this release push. Tagged releases also publish the
-multi-architecture container image.
+Release-it prompts for the version bump, updates both package versions, runs
+the checks, creates the release commit and tag, publishes the CLI, and creates
+the GitHub release. npm stays attached to the terminal so browser-based
+authentication and two-factor challenges can complete. The repository ruleset
+allows only the repository owner to bypass the pull-request requirement for
+this release push. Tagged releases also publish the multi-architecture
+container image.
 
 Infrastructure repositories should deploy the published container image and
 provide storage, routing, secrets, health checks, and schedules. They should
