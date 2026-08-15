@@ -20,6 +20,7 @@ export const config = {
   dailyUploadLimit: positiveInteger("PR_MEDIA_DAILY_UPLOADS_PER_TOKEN", 50),
   requestByteLimit: positiveInteger("PR_MEDIA_MAX_REQUEST_BYTES", 95_000_000),
   concurrentUploadLimit: positiveInteger("PR_MEDIA_MAX_CONCURRENT_UPLOADS", 2),
+  uploadTimeoutMs: positiveInteger("PR_MEDIA_UPLOAD_TIMEOUT_MS", 900_000),
 } as const;
 
 export const stateDirectory = process.env.MEDIA_STATE_DIR ?? join(config.mediaRoot, ".service");

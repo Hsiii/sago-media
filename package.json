@@ -17,7 +17,7 @@
     "check": "bun run test && bun run check:web && bun run build:server && npm pack --dry-run --workspace cli",
     "check:web": "bun run --cwd web check",
     "release": "cd cli && release-it --config ../release-it.config.cjs",
-    "test": "bash tests/api && bash tests/pipeline",
+    "test": "bash tests/api && bash tests/cli && bash tests/pipeline",
     "pack:cli": "npm pack --workspace cli"
   },
   "devDependencies": {

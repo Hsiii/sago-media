@@ -27,6 +27,7 @@ printf '%s\n' \
   '  [ "$1" = "--repo" ] && [ "$2" = "Hsiii/example" ]' \
   '  [ "$3" = "--pr" ] && [ "$4" = "42" ] && [ -s "$5" ]' \
   'fi' \
+  "[ ! -f \"$work_dir/hang\" ] || sleep 2" \
   'printf "![PR preview](https://media.example.test/test.png)\\n"' \
   >"$fake_uploader"
 chmod +x "$fake_uploader"
@@ -45,6 +46,7 @@ PR_MEDIA_BASE_URL=https://media.example.test \
 PR_MEDIA_DAILY_BYTES_PER_TOKEN=1000 \
 PR_MEDIA_DAILY_UPLOADS_PER_TOKEN=1 \
 PR_MEDIA_MAX_REQUEST_BYTES=1000 \
+PR_MEDIA_UPLOAD_TIMEOUT_MS=1000 \
 MEDIA_PUBLIC_URL="http://127.0.0.1:$port" \
 MEDIA_GITHUB_CLIENT_ID=test-client \
 MEDIA_GITHUB_CLIENT_SECRET=test-secret \
@@ -106,6 +108,16 @@ status="$(curl --silent --output "$work_dir/standalone" --write-out '%{http_code
 [ "$status" = 201 ]
 grep -Fq '"url":"https://media.example.test/test.png"' "$work_dir/standalone"
 
+timeout_token='timeout-token-abcdefghijklmnopqrstuvwxyz-0123456789'
+timeout_digest="$(printf '%s' "$timeout_token" | sha256sum | awk '{print $1}')"
+bun -e 'import { Database } from "bun:sqlite"; const db = new Database(process.argv[1]); db.query("INSERT INTO credentials(id, token_hash, github_id, github_login, device_name, scope, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)").run("timeout", process.argv[2], "1", "owner", "Slow Mac", "upload:any", new Date().toISOString())' "$work_dir/media/.service/media.sqlite" "$timeout_digest"
+touch "$work_dir/hang"
+status="$(curl --silent --output "$work_dir/timed-out" --write-out '%{http_code}' --request POST --header "Authorization: Bearer $timeout_token" --header 'X-Media-Filename: preview.png' --data-binary "@$source_file" "http://127.0.0.1:$port/v1/uploads")"
+[ "$status" = 504 ]
+rm "$work_dir/hang"
+status="$(curl --silent --output "$work_dir/retried" --write-out '%{http_code}' --request POST --header "Authorization: Bearer $timeout_token" --header 'X-Media-Filename: preview.png' --data-binary "@$source_file" "http://127.0.0.1:$port/v1/uploads")"
+[ "$status" = 201 ]
+
 status="$(
   curl --silent --output "$work_dir/quota" --write-out '%{http_code}' \
     --request POST \
@@ -126,7 +138,7 @@ session_digest="$(printf '%s' "$session" | sha256sum | awk '{print $1}')"
 bun -e 'import { Database } from "bun:sqlite"; const db = new Database(process.argv[1]); db.query("INSERT INTO sessions(token_hash, github_id, expires_at) VALUES (?, ?, ?)").run(process.argv[2], "1", new Date(Date.now() + 60000).toISOString())' "$work_dir/media/.service/media.sqlite" "$session_digest"
 
 curl --fail --silent --header "Cookie: media_session=$session" "http://127.0.0.1:$port/v1/admin/overview" >"$work_dir/dashboard"
-grep -Fq '"registeredDevices":2' "$work_dir/dashboard"
+grep -Fq '"registeredDevices":3' "$work_dir/dashboard"
 grep -Fq '"storedMediaBytes":0' "$work_dir/dashboard"
 grep -Fq '"history":[' "$work_dir/dashboard"
 

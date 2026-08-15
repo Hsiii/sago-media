@@ -20,7 +20,8 @@ as hashes by the service.
 - `PR_MEDIA_BASE_URL` and `MEDIA_PUBLIC_URL`
 - `MEDIA_GITHUB_CLIENT_ID` and `MEDIA_GITHUB_CLIENT_SECRET`
 - `MEDIA_OWNER_GITHUB_ID`, using GitHub's immutable numeric user ID
-- upload limits from the existing `PR_MEDIA_*` variables
+- upload limits from the existing `PR_MEDIA_*` variables, including the
+  processing timeout in `PR_MEDIA_UPLOAD_TIMEOUT_MS`
 
 The GitHub OAuth callback is `$MEDIA_PUBLIC_URL/auth/github/callback`.
 
