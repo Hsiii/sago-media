@@ -23,7 +23,7 @@ the credentials themselves.
 
 ## Other clients
 
-- The [Sago Media Mac app](https://github.com/Hsiii/sago-media-macos)
+- The [Sago Drop Mac app](https://github.com/Hsiii/sago-drop)
   provides quick personal uploads for links that can be pasted into Discord or
   elsewhere.
 - `npx sago-media upload <path>` creates a general-purpose share link when the
