@@ -33,6 +33,7 @@ database.exec(`
     github_id TEXT NOT NULL,
     github_login TEXT NOT NULL,
     device_name TEXT NOT NULL,
+    device_key TEXT,
     scope TEXT NOT NULL,
     created_at TEXT NOT NULL,
     last_used_at TEXT,
@@ -51,6 +52,35 @@ database.exec(`
     PRIMARY KEY(date, actor)
   );
 `);
+
+export function normalizedDeviceName(deviceName: string) {
+  return deviceName.trim().replace(/\s+\((?:darwin|linux|win32)\)$/i, "");
+}
+
+export function deviceKey(deviceName: string) {
+  return normalizedDeviceName(deviceName).normalize("NFKC").toLowerCase();
+}
+
+function migrateCredentialDevices() {
+  const columns = database.query("PRAGMA table_info(credentials)").all() as Array<{ name: string }>;
+  if (!columns.some((column) => column.name === "device_key")) database.exec("ALTER TABLE credentials ADD COLUMN device_key TEXT");
+
+  const credentials = database.query("SELECT id, github_id, device_name, revoked_at FROM credentials ORDER BY created_at DESC, id DESC").all() as Array<{ id: string; github_id: string; device_name: string; revoked_at: string | null }>;
+  const activeDevices = new Set<string>();
+  database.transaction(() => {
+    for (const credential of credentials) {
+      const name = normalizedDeviceName(credential.device_name);
+      const key = deviceKey(name);
+      const identity = `${credential.github_id}\0${key}`;
+      const revokedAt = credential.revoked_at ?? (activeDevices.has(identity) ? now() : null);
+      if (!revokedAt) activeDevices.add(identity);
+      database.query("UPDATE credentials SET device_name = ?, device_key = ?, revoked_at = ? WHERE id = ?").run(name, key, revokedAt, credential.id);
+    }
+  })();
+  database.exec("CREATE UNIQUE INDEX IF NOT EXISTS credentials_active_device ON credentials(github_id, device_key) WHERE revoked_at IS NULL");
+}
+
+migrateCredentialDevices();
 
 export function cleanExpired() {
   database.query("DELETE FROM auth_requests WHERE expires_at < ?").run(now());

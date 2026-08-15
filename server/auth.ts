@@ -3,7 +3,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
 import { config, publicOrigin, publicUrl } from "./config";
-import { cleanExpired, database } from "./database";
+import { cleanExpired, database, deviceKey, normalizedDeviceName } from "./database";
 import { authPage, digest, escapeHtml, future, html, json, now, randomToken, response, safeEqual } from "./shared";
 
 export type Actor = { id: string; login: string; scope: "upload:pr" | "upload:any" };
@@ -39,7 +39,7 @@ export function createDeviceRequest(request: Request) {
   const pending = database.query("SELECT COUNT(*) AS count FROM auth_requests").get() as { count: number };
   if (pending.count >= 100) return json({ error: "too many access requests are pending" }, 429);
   return request.json().then((body: { deviceName?: string }) => {
-    const deviceName = (body.deviceName ?? "Unknown device").trim().slice(0, 80);
+    const deviceName = normalizedDeviceName((body.deviceName ?? "Unknown device").trim().slice(0, 80));
     if (!deviceName) return json({ error: "deviceName is required" }, 400);
     const id = randomToken(18);
     const secret = randomToken();
@@ -60,8 +60,10 @@ export function pollDevice(request: Request, id: string) {
   const token = randomToken(48);
   const credentialId = randomToken(12);
   const scope = item.github_id === config.ownerGithubId ? "upload:any" : "upload:pr";
+  const normalizedName = normalizedDeviceName(item.device_name);
   database.transaction(() => {
-    database.query("INSERT INTO credentials(id, token_hash, github_id, github_login, device_name, scope, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)").run(credentialId, digest(token), item.github_id, item.github_login, item.device_name, scope, now());
+    database.query("UPDATE credentials SET revoked_at = ? WHERE github_id = ? AND device_key = ? AND revoked_at IS NULL").run(now(), item.github_id, deviceKey(normalizedName));
+    database.query("INSERT INTO credentials(id, token_hash, github_id, github_login, device_name, device_key, scope, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").run(credentialId, digest(token), item.github_id, item.github_login, normalizedName, deviceKey(normalizedName), scope, now());
     database.query("DELETE FROM auth_requests WHERE id = ?").run(id);
   })();
   return json({ status: "approved", token, scope });
