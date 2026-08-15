@@ -12,8 +12,10 @@ module.exports = {
     "before:bump": "bun --cwd .. run check",
     "after:bump": "node ../scripts/sync-release-version.mjs",
     "before:git:release": "git add ../package.json package.json",
+    "after:git:release":
+      "npm publish . --registry=https://registry.npmjs.org",
   },
   npm: {
-    allowSameVersion: true,
+    publish: false,
   },
 };
