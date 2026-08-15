@@ -5,10 +5,10 @@ import { homedir, hostname, platform } from "node:os";
 import { basename, dirname, extname, join, resolve } from "node:path";
 import { spawn } from "node:child_process";
 
-const configPath = process.env.MEDIA_CONFIG ?? join(process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config"), "hsiii-media", "config.json");
+const configPath = process.env.MEDIA_CONFIG ?? join(process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config"), "sago-media", "config.json");
 
 function usage() {
-  console.error("Usage: media auth login|status|logout [--url URL] | media upload <path> [--repo OWNER/REPO --pr NUMBER] [--output url|markdown|json]");
+  console.error("Usage: sago-media auth login|status|logout [--url URL] | sago-media upload <path> [--repo OWNER/REPO --pr NUMBER] [--output url|markdown|json]");
   process.exit(2);
 }
 
@@ -63,7 +63,7 @@ async function login(args) {
       throw new Error("Access was denied.");
     }
   }
-  console.log("Request is still pending. Run `media auth login` again after approval.");
+  console.log("Request is still pending. Run `sago-media auth login` again after approval.");
 }
 
 async function auth(command, args) {
@@ -96,7 +96,7 @@ async function upload(args) {
   }
   if ((repo && !pr) || (!repo && pr)) usage();
   const config = await loadConfig();
-  if (!config.url || !config.token) throw new Error("Not authenticated. Run `npx @hsiii/media auth login` first.");
+  if (!config.url || !config.token) throw new Error("Not authenticated. Run `npx sago-media auth login` first.");
   const sourcePath = resolve(path);
   const body = await readFile(sourcePath);
   const extension = extname(sourcePath).slice(1).toLowerCase();
@@ -117,4 +117,3 @@ try {
   console.error(error instanceof Error ? error.message : String(error));
   process.exitCode = 1;
 }
-

@@ -39,5 +39,5 @@ jobs:
           context: .
           push: true
           tags: |
-            ghcr.io/hsiii/media:${{ github.ref_name }}
-            ghcr.io/hsiii/media:latest
+            ghcr.io/hsiii/sago-media:${{ github.ref_name }}
+            ghcr.io/hsiii/sago-media:latest

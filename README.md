@@ -1,14 +1,14 @@
-# media
+# Sago Media
 
 The product behind `media.hsichen.dev`: authenticated uploads, GitHub-backed
-device approval, media processing and retention, and the `@hsiii/media` CLI.
+device approval, media processing and retention, and the `sago-media` CLI.
 
 ## Clients
 
 ```bash
-npx @hsiii/media@0.1.0 auth login
-npx @hsiii/media@0.1.0 upload screenshot.png
-npx @hsiii/media@0.1.0 upload screenshot.png --repo Hsiii/example --pr 42 --output markdown
+npx sago-media@0.1.0 auth login
+npx sago-media@0.1.0 upload screenshot.png
+npx sago-media@0.1.0 upload screenshot.png --repo Hsiii/example --pr 42 --output markdown
 ```
 
 Friends receive `upload:pr` access after owner approval. The owner's GitHub
@@ -29,7 +29,7 @@ The GitHub OAuth callback is `$MEDIA_PUBLIC_URL/auth/github/callback`.
 ```bash
 bun run test
 bun run build
-docker build -t hsiii-media .
+docker build -t sago-media .
 ```
 
 Infrastructure repositories should deploy the published container image and

@@ -1,5 +1,5 @@
 {
-  "name": "hsiii-media",
+  "name": "sago-media-workspace",
   "private": true,
   "type": "module",
   "workspaces": ["cli"],
