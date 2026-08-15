@@ -152,6 +152,13 @@ grep -Fq '"registeredDevices":4' "$work_dir/dashboard"
 grep -Fq '"storedMediaBytes":0' "$work_dir/dashboard"
 grep -Fq '"history":[' "$work_dir/dashboard"
 
+status="$(curl --silent --output /dev/null --write-out '%{http_code}' --request POST --header "Cookie: media_session=$session" --header "Origin: http://127.0.0.1:$port" "http://127.0.0.1:$port/v1/admin/credentials/owner/scope/upload:pr")"
+[ "$status" = 204 ]
+[ "$(bun -e 'import { Database } from "bun:sqlite"; const db = new Database(process.argv[1]); console.log(db.query("SELECT scope FROM credentials WHERE id = ?").get("owner").scope)' "$work_dir/media/.service/media.sqlite")" = "upload:pr" ]
+status="$(curl --silent --output /dev/null --write-out '%{http_code}' --request POST --header "Cookie: media_session=$session" --header "Origin: http://127.0.0.1:$port" "http://127.0.0.1:$port/v1/admin/credentials/owner/scope/upload:any")"
+[ "$status" = 204 ]
+[ "$(bun -e 'import { Database } from "bun:sqlite"; const db = new Database(process.argv[1]); console.log(db.query("SELECT scope FROM credentials WHERE id = ?").get("owner").scope)' "$work_dir/media/.service/media.sqlite")" = "upload:any" ]
+
 status="$(curl --silent --output "$work_dir/cross-origin" --write-out '%{http_code}' --request POST --header "Cookie: media_session=$session" --header 'Origin: https://attacker.example' "http://127.0.0.1:$port/admin/requests/missing/deny")"
 [ "$status" = 403 ]
 status="$(curl --silent --output "$work_dir/same-origin" --write-out '%{http_code}' --request POST --header "Cookie: media_session=$session" --header "Origin: http://127.0.0.1:$port" "http://127.0.0.1:$port/admin/requests/missing/deny")"

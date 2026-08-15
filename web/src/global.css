@@ -18,7 +18,8 @@ body {
     font: 400 var(--fs-body) / 1.5 var(--ff-body);
 }
 button,
-a {
+a,
+select {
     font: inherit;
 }
 a {

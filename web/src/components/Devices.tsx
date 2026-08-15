@@ -68,6 +68,9 @@ function DeviceRow({
     onAction: (path: string) => void;
 }): JSX.Element {
     const revokePath = `/v1/admin/credentials/${device.id}/revoke`;
+    const scopePath = (scope: Device['scope']): string =>
+        `/v1/admin/credentials/${device.id}/scope/${scope}`;
+    const scopeLabel = device.scope === 'upload:any' ? 'PR & video' : 'PR-only';
     const active =
         device.lastUsedAt !== undefined &&
         Date.now() - new Date(device.lastUsedAt).getTime() < 7 * 86_400_000;
@@ -86,12 +89,23 @@ function DeviceRow({
             </td>
             <td>
                 <strong>@{device.githubLogin}</strong>
-                <span>
-                    {device.scope === 'upload:any' ? 'Owner' : 'Collaborator'}
-                </span>
+                <span>{scopeLabel}</span>
             </td>
             <td>
-                <code>{device.scope}</code>
+                <select
+                    aria-label={`Scope for ${device.deviceName}`}
+                    className='scope-select'
+                    disabled={pendingAction !== undefined}
+                    onChange={(event) => {
+                        onAction(
+                            scopePath(event.target.value as Device['scope'])
+                        );
+                    }}
+                    value={device.scope}
+                >
+                    <option value='upload:pr'>PR-only</option>
+                    <option value='upload:any'>PR &amp; video</option>
+                </select>
             </td>
             <td className='optional-column'>
                 <strong>{device.uploads.toLocaleString('en')}</strong>
