@@ -32,6 +32,19 @@ bun run build
 docker build -t sago-media .
 ```
 
+## Release
+
+Update both package versions in a pull request and merge it first. From a clean
+`main`, release the already-merged version:
+
+```bash
+GITHUB_TOKEN="$(gh auth token)" bun run release -- 0.1.0
+```
+
+The release command does not commit or push `main`. It publishes the CLI, pushes
+only `v0.1.0`, and creates the GitHub release. Tagged releases also publish the
+multi-architecture container image.
+
 Infrastructure repositories should deploy the published container image and
 provide storage, routing, secrets, health checks, and schedules. They should
 not contain this repository's application or client source.
