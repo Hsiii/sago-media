@@ -118,6 +118,13 @@ session='test-session-abcdefghijklmnopqrstuvwxyz-0123456789'
 session_digest="$(printf '%s' "$session" | sha256sum | awk '{print $1}')"
 bun -e 'import { Database } from "bun:sqlite"; const db = new Database(process.argv[1]); db.query("INSERT INTO sessions(token_hash, github_id, expires_at) VALUES (?, ?, ?)").run(process.argv[2], "1", new Date(Date.now() + 60000).toISOString())' "$work_dir/media/.service/media.sqlite" "$session_digest"
 
+curl --fail --silent --header "Cookie: media_session=$session" "http://127.0.0.1:$port/admin" >"$work_dir/dashboard"
+grep -Fq 'Usage overview' "$work_dir/dashboard"
+grep -Fq 'Registered devices' "$work_dir/dashboard"
+grep -Fq 'Bandwidth transfer over the last 14 days' "$work_dir/dashboard"
+grep -Fq 'Stored media' "$work_dir/dashboard"
+! grep -Fq 'Storage volume' "$work_dir/dashboard"
+
 status="$(curl --silent --output "$work_dir/cross-origin" --write-out '%{http_code}' --request POST --header "Cookie: media_session=$session" --header 'Origin: https://attacker.example' "http://127.0.0.1:$port/admin/requests/missing/deny")"
 [ "$status" = 403 ]
 status="$(curl --silent --output "$work_dir/same-origin" --write-out '%{http_code}' --request POST --header "Cookie: media_session=$session" --header "Origin: http://127.0.0.1:$port" "http://127.0.0.1:$port/admin/requests/missing/deny")"
