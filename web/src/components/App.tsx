@@ -45,7 +45,11 @@ export function App(): JSX.Element {
         const unauthorized = dashboard.error.message === 'unauthorized';
         return (
             <main className='error-page'>
-                <span className='brand-mark'>SM</span>
+                <img
+                    alt='Sago Media'
+                    className='brand-mark'
+                    src='/admin/favicon.png'
+                />
                 <h1>
                     {unauthorized
                         ? 'Your session expired'
@@ -82,13 +86,10 @@ export function App(): JSX.Element {
 
     return (
         <div className='shell'>
-            <Sidebar concurrentLimit={data.status.concurrentUploadLimit} />
+            <Sidebar />
             <header className='topbar'>
                 <strong>Sago Media</strong>
                 <span>Overview</span>
-                <span className='topbar__status'>
-                    <span className='status-dot' /> All systems operational
-                </span>
             </header>
             <main className='page'>
                 <header className='page-heading' id='overview'>

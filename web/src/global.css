@@ -75,14 +75,11 @@ button:disabled {
     width: 28px;
     height: 28px;
     border-radius: var(--radius-round);
-    display: inline-grid;
-    place-items: center;
+    display: block;
     flex: 0 0 auto;
-    background: var(--clr-button);
-    color: var(--clr-button-text);
-    font-size: var(--fs-label);
-    font-weight: var(--fw-semibold);
-    letter-spacing: -0.06em;
+    object-fit: cover;
+    outline: 1px solid rgb(0 0 0 / 10%);
+    outline-offset: -1px;
 }
 .status-dot {
     width: 8px;
@@ -117,5 +114,11 @@ button:disabled {
     button,
     .button {
         transition-duration: 0ms;
+    }
+}
+
+@media (prefers-color-scheme: dark) {
+    .brand-mark {
+        outline-color: rgb(255 255 255 / 10%);
     }
 }
