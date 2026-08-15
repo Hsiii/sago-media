@@ -24,6 +24,22 @@ as hashes by the service.
 
 The GitHub OAuth callback is `$MEDIA_PUBLIC_URL/auth/github/callback`.
 
+## Workspace
+
+- `server/` contains the Bun API, authentication, database, and dashboard API.
+- `web/` contains the Vite and React admin dashboard.
+- `cli/` contains the published `sago-media` command.
+- `scripts/` contains the media processing pipeline.
+
+Run both development servers together:
+
+```bash
+bun run dev
+```
+
+The dashboard is available from Vite at `http://localhost:5173/admin/`; API
+requests are proxied to the Bun service on port 3000.
+
 ## Build and test
 
 ```bash

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
-server="$repo_root/server.ts"
+server="$repo_root/server/index.ts"
 work_dir="$(mktemp -d)"
 server_pid=
 
@@ -59,6 +59,13 @@ for _ in 1 2 3 4 5; do
   sleep 1
 done
 curl --fail --silent "http://127.0.0.1:$port/health" >/dev/null
+
+[ "$(curl --silent --output /dev/null --write-out '%{http_code}' "http://127.0.0.1:$port/admin/")" = 401 ]
+
+curl --silent --dump-header "$work_dir/github-headers" --output /dev/null "http://127.0.0.1:$port/admin/login"
+grep -Fiq 'location: https://github.com/login/oauth/authorize?' "$work_dir/github-headers"
+grep -Fq 'client_id=test-client' "$work_dir/github-headers"
+grep -Fq "redirect_uri=http%3A%2F%2F127.0.0.1%3A$port%2Fauth%2Fgithub%2Fcallback" "$work_dir/github-headers"
 
 device_json="$(curl --fail --silent --request POST --header 'Content-Type: application/json' --data '{"deviceName":"Test Mac"}' "http://127.0.0.1:$port/v1/auth/device")"
 device_id="$(bun -e 'console.log(JSON.parse(process.argv[1]).deviceCode)' "$device_json")"
@@ -118,12 +125,10 @@ session='test-session-abcdefghijklmnopqrstuvwxyz-0123456789'
 session_digest="$(printf '%s' "$session" | sha256sum | awk '{print $1}')"
 bun -e 'import { Database } from "bun:sqlite"; const db = new Database(process.argv[1]); db.query("INSERT INTO sessions(token_hash, github_id, expires_at) VALUES (?, ?, ?)").run(process.argv[2], "1", new Date(Date.now() + 60000).toISOString())' "$work_dir/media/.service/media.sqlite" "$session_digest"
 
-curl --fail --silent --header "Cookie: media_session=$session" "http://127.0.0.1:$port/admin" >"$work_dir/dashboard"
-grep -Fq 'Usage overview' "$work_dir/dashboard"
-grep -Fq 'Registered devices' "$work_dir/dashboard"
-grep -Fq 'Bandwidth transfer over the last 14 days' "$work_dir/dashboard"
-grep -Fq 'Stored media' "$work_dir/dashboard"
-! grep -Fq 'Storage volume' "$work_dir/dashboard"
+curl --fail --silent --header "Cookie: media_session=$session" "http://127.0.0.1:$port/v1/admin/overview" >"$work_dir/dashboard"
+grep -Fq '"registeredDevices":2' "$work_dir/dashboard"
+grep -Fq '"storedMediaBytes":0' "$work_dir/dashboard"
+grep -Fq '"history":[' "$work_dir/dashboard"
 
 status="$(curl --silent --output "$work_dir/cross-origin" --write-out '%{http_code}' --request POST --header "Cookie: media_session=$session" --header 'Origin: https://attacker.example' "http://127.0.0.1:$port/admin/requests/missing/deny")"
 [ "$status" = 403 ]

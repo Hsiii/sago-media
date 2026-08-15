@@ -1,0 +1,32 @@
+:root {
+    --ff-body:
+        ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --ff-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+
+    --fs-label: 0.75rem;
+    --fs-body: 0.875rem;
+    --fs-heading: 1rem;
+    --fs-title: 1.75rem;
+    --fs-metric: 1.75rem;
+
+    --fw-medium: 500;
+    --fw-semibold: 600;
+
+    --space-4: 4px;
+    --space-8: 8px;
+    --space-12: 12px;
+    --space-16: 16px;
+    --space-20: 20px;
+    --space-24: 24px;
+    --space-32: 32px;
+    --space-40: 40px;
+    --space-48: 48px;
+    --space-64: 64px;
+
+    --size-outline: 2px;
+    --size-sidebar: 256px;
+    --size-content-max: 1120px;
+    --radius-4: 4px;
+    --radius-8: 8px;
+    --radius-round: 999px;
+}
