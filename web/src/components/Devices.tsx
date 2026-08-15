@@ -70,6 +70,7 @@ function DeviceRow({
     const revokePath = `/v1/admin/credentials/${device.id}/revoke`;
     const scopePath = (scope: Device['scope']): string =>
         `/v1/admin/credentials/${device.id}/scope/${scope}`;
+    const scopeLabel = device.scope === 'upload:any' ? 'PR & video' : 'PR-only';
     const active =
         device.lastUsedAt !== undefined &&
         Date.now() - new Date(device.lastUsedAt).getTime() < 7 * 86_400_000;
@@ -88,11 +89,7 @@ function DeviceRow({
             </td>
             <td>
                 <strong>@{device.githubLogin}</strong>
-                <span>
-                    {device.scope === 'upload:any'
-                        ? 'Full access'
-                        : 'PR access'}
-                </span>
+                <span>{scopeLabel}</span>
             </td>
             <td>
                 <select
@@ -106,8 +103,8 @@ function DeviceRow({
                     }}
                     value={device.scope}
                 >
-                    <option value='upload:pr'>upload:pr</option>
-                    <option value='upload:any'>upload:any</option>
+                    <option value='upload:pr'>PR-only</option>
+                    <option value='upload:any'>PR &amp; video</option>
                 </select>
             </td>
             <td className='optional-column'>
