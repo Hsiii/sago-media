@@ -42,5 +42,5 @@ jobs:
           provenance: mode=max
           sbom: true
           tags: |
-            ghcr.io/orangesago/sago-media:${{ github.ref_name }}
-            ghcr.io/orangesago/sago-media:latest
+            ghcr.io/sago-cream/sago-media:${{ github.ref_name }}
+            ghcr.io/sago-cream/sago-media:latest
