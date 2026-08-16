@@ -18,8 +18,8 @@ output="$(PR_MEDIA_ROOT="$media" PR_MEDIA_BASE_URL=https://media.example.test PR
 [ "$output" = "![PR preview](https://media.example.test/${digest:0:2}/$digest.png)" ]
 [ -f "$media/${digest:0:2}/$digest.png" ]
 
-PR_MEDIA_ROOT="$media" PR_MEDIA_BASE_URL=https://media.example.test PR_MEDIA_PRUNE_COMMAND="$pruner" PR_MEDIA_OPTIMIZE=0 PR_MEDIA_USED_PERCENT=0 "$uploader" --repo Hsiii/example --pr 42 "$source" >/dev/null
-[ -f "$media/.refs/$digest/Hsiii/example/42" ]
+PR_MEDIA_ROOT="$media" PR_MEDIA_BASE_URL=https://media.example.test PR_MEDIA_PRUNE_COMMAND="$pruner" PR_MEDIA_OPTIMIZE=0 PR_MEDIA_USED_PERCENT=0 "$uploader" --repo orangesago/example --pr 42 "$source" >/dev/null
+[ -f "$media/.refs/$digest/orangesago/example/42" ]
 
 PR_MEDIA_ROOT="$media" "$pin" "$media/${digest:0:2}/$digest.png" >/dev/null
 [ -f "$media/.pins/$digest" ]

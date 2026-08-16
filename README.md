@@ -10,7 +10,7 @@ contributors.
 ```bash
 npx sago-media auth login
 npx sago-media upload recording.mov \
-  --repo Hsiii/example \
+  --repo orangesago/example \
   --pr 42 \
   --output markdown
 ```
@@ -23,7 +23,7 @@ the credentials themselves.
 
 ## Other clients
 
-- The [Sago Drop Mac app](https://github.com/Hsiii/sago-drop)
+- The [Sago Drop Mac app](https://github.com/orangesago/sago-drop)
   provides quick personal uploads for links that can be pasted into Discord or
   elsewhere.
 - `npx sago-media upload <path>` creates a general-purpose share link when the
