@@ -20,10 +20,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/orangesago/sago-media.git",
+    "url": "git+https://github.com/sago-cream/sago-media.git",
     "directory": "cli"
   },
-  "homepage": "https://github.com/orangesago/sago-media#readme",
-  "bugs": "https://github.com/orangesago/sago-media/issues",
+  "homepage": "https://github.com/sago-cream/sago-media#readme",
+  "bugs": "https://github.com/sago-cream/sago-media/issues",
   "license": "MIT"
 }

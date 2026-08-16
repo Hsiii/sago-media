@@ -27,7 +27,7 @@ fake_uploader="$work_dir/fake-uploader"
 printf '%s\n' \
   '#!/bin/sh' \
   'if [ "$#" = 1 ]; then [ -s "$1" ]; else' \
-  '  [ "$1" = "--repo" ] && [ "$2" = "orangesago/example" ]' \
+  '  [ "$1" = "--repo" ] && [ "$2" = "sago-cream/example" ]' \
   '  [ "$3" = "--pr" ] && [ "$4" = "42" ] && [ -s "$5" ]' \
   'fi' \
   "[ ! -f \"$work_dir/hang\" ] || sleep 2" \
@@ -89,7 +89,7 @@ rotated_counts="$(bun -e 'import { Database } from "bun:sqlite"; const db = new 
 status="$(
   curl --silent --output "$work_dir/unauthorized" --write-out '%{http_code}' \
     --request POST \
-    --header 'X-PR-Media-Repo: orangesago/example' \
+    --header 'X-PR-Media-Repo: sago-cream/example' \
     --header 'X-PR-Media-PR: 42' \
     --header 'X-PR-Media-Filename: preview.png' \
     --data-binary "@$source_file" \
@@ -101,7 +101,7 @@ status="$(
   curl --silent --output "$work_dir/uploaded" --write-out '%{http_code}' \
     --request POST \
     --header "Authorization: Bearer $token" \
-    --header 'X-PR-Media-Repo: orangesago/example' \
+    --header 'X-PR-Media-Repo: sago-cream/example' \
     --header 'X-PR-Media-PR: 42' \
     --header 'X-PR-Media-Filename: preview.png' \
     --data-binary "@$source_file" \
@@ -132,7 +132,7 @@ status="$(
   curl --silent --output "$work_dir/quota" --write-out '%{http_code}' \
     --request POST \
     --header "Authorization: Bearer $token" \
-    --header 'X-PR-Media-Repo: orangesago/example' \
+    --header 'X-PR-Media-Repo: sago-cream/example' \
     --header 'X-PR-Media-PR: 42' \
     --header 'X-PR-Media-Filename: preview.png' \
     --data-binary "@$source_file" \
