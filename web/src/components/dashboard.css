@@ -465,20 +465,6 @@ code {
     font: 0.6875rem var(--ff-mono);
     white-space: nowrap;
 }
-.scope-select {
-    min-height: var(--space-32);
-    padding: 0 var(--space-8);
-    border: 1px solid var(--clr-border-strong);
-    border-radius: var(--radius-4);
-    background: var(--clr-surface-raised);
-    color: var(--clr-text);
-    font: var(--fs-label) var(--ff-mono);
-    cursor: pointer;
-}
-.scope-select:disabled {
-    opacity: 0.56;
-    cursor: wait;
-}
 .table-action button {
     opacity: 0;
     transition-property: opacity, box-shadow, transform;

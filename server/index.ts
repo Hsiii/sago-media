@@ -10,14 +10,13 @@ Bun.serve({ port: config.port, async fetch(request) {
   if (request.method === "GET" && url.pathname === "/health") {
     return config.baseUrl && publicOrigin && config.githubClientId && config.githubClientSecret && config.ownerGithubId ? response("ok\n") : response("configuration incomplete\n", 503);
   }
-  if (request.method === "POST" && url.pathname === "/api/upload") return upload(request, true);
-  if (request.method === "POST" && url.pathname === "/v1/uploads") return upload(request, false);
+  if (request.method === "POST" && url.pathname === "/v1/uploads") return upload(request);
   if (request.method === "POST" && url.pathname === "/v1/auth/device") return createDeviceRequest(request);
   const device = /^\/v1\/auth\/device\/([^/]+)$/.exec(url.pathname);
   if (request.method === "GET" && device) return pollDevice(request, device[1]);
   if (request.method === "GET" && url.pathname === "/activate") {
     const item = database.query("SELECT id, user_code FROM auth_requests WHERE user_code = ? AND expires_at > ?").get(requestCode(url), new Date().toISOString()) as { id: string; user_code: string } | null;
-    if (!item) return html(authPage("Invalid or expired code", "Request a new code from the Sago Media CLI and try again."), 404);
+    if (!item) return html(authPage("Invalid or expired code", "Request a new code from Sago Drop and try again."), 404);
     return html(authPage("Connect this device", `Confirm code <code>${item.user_code}</code> to authorize this device.`, `<a href="/auth/github?request=${item.id}">Continue with GitHub</a>`));
   }
   if (request.method === "GET" && url.pathname === "/auth/github") return beginGithubOAuth("activate", url.searchParams.get("request") ?? undefined);

@@ -42,15 +42,12 @@ async function writeRequestBody(request: Request, destination: string) {
   return received;
 }
 
-export async function upload(request: Request, legacyResponse: boolean) {
+export async function upload(request: Request) {
   const actor = authenticate(request);
   if (!actor) return response("Unauthorized.\n", 401, { "WWW-Authenticate": "Bearer" });
-  const repo = request.headers.get("x-media-repo") ?? request.headers.get("x-pr-media-repo") ?? "";
-  const pr = request.headers.get("x-media-pr") ?? request.headers.get("x-pr-media-pr") ?? "";
-  const filename = basename(request.headers.get("x-media-filename") ?? request.headers.get("x-pr-media-filename") ?? "");
+  const filename = basename(request.headers.get("x-media-filename") ?? "");
   const extension = filename.split(".").at(-1)?.toLowerCase() ?? "";
-  const hasContext = repo !== "" || pr !== "";
-  if (!supportedExtensions.has(extension) || (hasContext && (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo) || !/^[1-9][0-9]*$/.test(pr))) || (!hasContext && (legacyResponse || actor.scope === "upload:pr"))) return response("Invalid upload context or filename.\n", 400);
+  if (!supportedExtensions.has(extension)) return response("Invalid filename.\n", 400);
   const contentLength = Number(request.headers.get("content-length"));
   if (!Number.isSafeInteger(contentLength) || contentLength <= 0) return response("Content-Length is required.\n", 411);
   if (contentLength > config.requestByteLimit) return response("Upload exceeds the request size limit.\n", 413);
@@ -67,8 +64,7 @@ export async function upload(request: Request, legacyResponse: boolean) {
   try {
     const received = await writeRequestBody(request, sourcePath);
     if (received !== contentLength) return response("Content-Length did not match the uploaded body.\n", 400);
-    const args = hasContext ? [config.uploadCommand, "--repo", repo, "--pr", pr, sourcePath] : [config.uploadCommand, sourcePath];
-    const child = Bun.spawn({ cmd: args, detached: true, env: process.env, stdout: "pipe", stderr: "pipe" });
+    const child = Bun.spawn({ cmd: [config.uploadCommand, sourcePath], detached: true, env: process.env, stdout: "pipe", stderr: "pipe" });
     const stdoutPromise = new Response(child.stdout).text();
     const stderrPromise = new Response(child.stderr).text();
     let timedOut = false;
@@ -83,9 +79,8 @@ export async function upload(request: Request, legacyResponse: boolean) {
     if (status !== 0) return response(`${stderr.trim().slice(0, 2000)}\n`, 422);
     const markdown = stdout.trim();
     const urls = [...markdown.matchAll(/https:\/\/[^)<>\s]+/g)].map((match) => match[0]);
-    console.info(JSON.stringify({ actor: actor.login, bytes: received, event: "upload_completed", pr: pr || undefined, repo: repo || undefined }));
+    console.info(JSON.stringify({ actor: actor.login, bytes: received, event: "upload_completed" }));
     completed = true;
-    if (legacyResponse) return response(`${markdown}\n`, 201);
     return json({ markdown, url: urls.at(-1), previewUrl: urls.length > 1 ? urls[0] : null }, 201);
   } finally {
     activeUploads -= 1;

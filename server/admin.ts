@@ -1,7 +1,7 @@
 import { readdirSync, statSync } from "node:fs";
 import { basename, join } from "node:path";
 
-import { adminAuthorized, adminMutationAuthorized, loadLegacyTokens } from "./auth";
+import { adminAuthorized, adminMutationAuthorized } from "./auth";
 import { config, webRoot } from "./config";
 import { database } from "./database";
 import { authPage, html, json, now, response } from "./shared";
@@ -45,7 +45,7 @@ export async function dashboardAsset(pathname: string) {
 export function dashboardOverview(request: Request) {
   if (!adminAuthorized(request)) return json({ error: "unauthorized" }, 401);
   const pending = database.query("SELECT id, device_name, github_login, created_at FROM auth_requests WHERE status = 'pending_approval' ORDER BY created_at").all() as Array<{ id: string; device_name: string; github_login: string; created_at: string }>;
-  const credentials = database.query("SELECT id, github_login, device_name, scope, created_at, last_used_at FROM credentials WHERE revoked_at IS NULL ORDER BY created_at DESC").all() as Array<{ id: string; github_login: string; device_name: string; scope: "upload:pr" | "upload:any"; created_at: string; last_used_at: string | null }>;
+  const credentials = database.query("SELECT id, github_login, device_name, created_at, last_used_at FROM credentials WHERE revoked_at IS NULL ORDER BY created_at DESC").all() as Array<{ id: string; github_login: string; device_name: string; created_at: string; last_used_at: string | null }>;
   const historyDates = Array.from({ length: 14 }, (_, index) => new Date(Date.now() - (13 - index) * 86_400_000).toISOString().slice(0, 10));
   const usageRows = database.query("SELECT date, SUM(bytes) AS bytes, SUM(uploads) AS uploads FROM usage WHERE date >= ? GROUP BY date ORDER BY date").all(historyDates[0]) as Array<{ date: string; bytes: number; uploads: number }>;
   const usageByDate = new Map(usageRows.map((row) => [row.date, row]));
@@ -53,17 +53,15 @@ export function dashboardOverview(request: Request) {
   const totals = database.query("SELECT COALESCE(SUM(bytes), 0) AS bytes, COALESCE(SUM(uploads), 0) AS uploads FROM usage").get() as { bytes: number; uploads: number };
   const recentUsage = database.query("SELECT actor, SUM(bytes) AS bytes, SUM(uploads) AS uploads FROM usage WHERE date >= ? GROUP BY actor").all(historyDates[0]) as Array<{ actor: string; bytes: number; uploads: number }>;
   const usageByActor = new Map(recentUsage.map((item) => [item.actor, item]));
-  const legacyDevices = loadLegacyTokens().length;
-  const quotaDevices = Math.max(1, credentials.length + legacyDevices);
+  const quotaDevices = Math.max(1, credentials.length);
   const today = history.at(-1)!;
 
   return json({
     generatedAt: now(),
     status: { activeUploads: getActiveUploads(), concurrentUploadLimit: config.concurrentUploadLimit },
     stats: {
-      registeredDevices: credentials.length + legacyDevices,
+      registeredDevices: credentials.length,
       activeDevices: credentials.filter((item) => item.last_used_at && Date.now() - new Date(item.last_used_at).getTime() < 7 * 86_400_000).length,
-      legacyDevices,
       totalUploads: totals.uploads,
       totalBytes: totals.bytes,
       todayUploads: today.uploads,
@@ -76,7 +74,7 @@ export function dashboardOverview(request: Request) {
     pending: pending.map((item) => ({ id: item.id, deviceName: item.device_name, githubLogin: item.github_login, createdAt: item.created_at })),
     devices: credentials.map((item) => {
       const usage = usageByActor.get(item.id) ?? { bytes: 0, uploads: 0 };
-      return { id: item.id, deviceName: item.device_name, githubLogin: item.github_login, scope: item.scope, createdAt: item.created_at, lastUsedAt: item.last_used_at ?? undefined, bytes: usage.bytes, uploads: usage.uploads };
+      return { id: item.id, deviceName: item.device_name, githubLogin: item.github_login, createdAt: item.created_at, lastUsedAt: item.last_used_at ?? undefined, bytes: usage.bytes, uploads: usage.uploads };
     }),
   });
 }
@@ -88,11 +86,6 @@ export function dashboardMutation(request: Request, pathname: string) {
   if (approval) {
     database.query("UPDATE auth_requests SET status = ? WHERE id = ? AND status = 'pending_approval'").run(approval[2] === "approve" ? "approved" : "denied", approval[1]);
     return new Response(null, { status: 204 });
-  }
-  const scope = /^\/v1\/admin\/credentials\/([^/]+)\/scope\/(upload:pr|upload:any)$/.exec(pathname);
-  if (scope) {
-    const result = database.query("UPDATE credentials SET scope = ? WHERE id = ? AND revoked_at IS NULL").run(scope[2], scope[1]);
-    return result.changes === 0 ? json({ error: "credential not found" }, 404) : new Response(null, { status: 204 });
   }
   const revocation = /^\/v1\/admin\/credentials\/([^/]+)\/revoke$/.exec(pathname);
   if (revocation) {

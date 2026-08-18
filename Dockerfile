@@ -3,7 +3,6 @@ FROM oven/bun:1.3.9-debian AS web-build
 WORKDIR /app
 
 COPY package.json bun.lock bunfig.toml /app/
-COPY cli/package.json /app/cli/package.json
 COPY web/package.json /app/web/package.json
 RUN bun install --frozen-lockfile
 
@@ -16,7 +15,7 @@ USER root
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
-    ca-certificates ffmpeg file gh jpegoptim libimage-exiftool-perl optipng util-linux webp \
+    ca-certificates ffmpeg file jpegoptim libimage-exiftool-perl optipng util-linux webp \
   && rm -rf /var/lib/apt/lists/*
 
 RUN groupadd --gid 10001 sago-media \

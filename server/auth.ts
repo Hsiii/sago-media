@@ -1,36 +1,19 @@
 import { randomBytes } from "node:crypto";
-import { readFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
-
 import { config, publicOrigin, publicUrl } from "./config";
 import { cleanExpired, database, deviceKey, normalizedDeviceName } from "./database";
 import { authPage, digest, escapeHtml, future, html, json, now, randomToken, response, safeEqual } from "./shared";
 
-export type Actor = { id: string; login: string; scope: "upload:pr" | "upload:any" };
-
-export function loadLegacyTokens() {
-  const tokens: Array<{ digest: string; name: string }> = [];
-  try {
-    for (const entry of readdirSync(config.tokenDirectory, { withFileTypes: true })) {
-      if (!entry.isFile() || !/^[a-z0-9][a-z0-9_-]{0,31}$/.test(entry.name)) continue;
-      const value = readFileSync(join(config.tokenDirectory, entry.name), "utf8").trim();
-      if (/^[0-9a-f]{64}$/.test(value)) tokens.push({ digest: value, name: entry.name });
-    }
-  } catch {}
-  return tokens;
-}
+export type Actor = { id: string; login: string };
 
 export function authenticate(request: Request): Actor | undefined {
   const match = /^Bearer ([A-Za-z0-9_-]{32,256})$/.exec(request.headers.get("authorization") ?? "");
   if (!match) return;
   const tokenHash = digest(match[1]);
-  const credential = database.query("SELECT id, github_login, scope, token_hash FROM credentials WHERE token_hash = ? AND revoked_at IS NULL").get(tokenHash) as { id: string; github_login: string; scope: Actor["scope"]; token_hash: string } | null;
+  const credential = database.query("SELECT id, github_login, token_hash FROM credentials WHERE token_hash = ? AND revoked_at IS NULL").get(tokenHash) as { id: string; github_login: string; token_hash: string } | null;
   if (credential && safeEqual(credential.token_hash, tokenHash)) {
     database.query("UPDATE credentials SET last_used_at = ? WHERE id = ?").run(now(), credential.id);
-    return { id: credential.id, login: credential.github_login, scope: credential.scope };
+    return { id: credential.id, login: credential.github_login };
   }
-  const legacy = loadLegacyTokens().find((item) => safeEqual(item.digest, tokenHash));
-  if (legacy) return { id: `legacy-${legacy.name}`, login: legacy.name, scope: "upload:pr" };
 }
 
 export function createDeviceRequest(request: Request) {
@@ -59,14 +42,13 @@ export function pollDevice(request: Request, id: string) {
   if (item.status !== "approved") return json({ status: item.status });
   const token = randomToken(48);
   const credentialId = randomToken(12);
-  const scope = item.github_id === config.ownerGithubId ? "upload:any" : "upload:pr";
   const normalizedName = normalizedDeviceName(item.device_name);
   database.transaction(() => {
     database.query("UPDATE credentials SET revoked_at = ? WHERE github_id = ? AND device_key = ? AND revoked_at IS NULL").run(now(), item.github_id, deviceKey(normalizedName));
-    database.query("INSERT INTO credentials(id, token_hash, github_id, github_login, device_name, device_key, scope, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").run(credentialId, digest(token), item.github_id, item.github_login, normalizedName, deviceKey(normalizedName), scope, now());
+    database.query("INSERT INTO credentials(id, token_hash, github_id, github_login, device_name, device_key, scope, created_at) VALUES (?, ?, ?, ?, ?, ?, 'upload:any', ?)").run(credentialId, digest(token), item.github_id, item.github_login, normalizedName, deviceKey(normalizedName), now());
     database.query("DELETE FROM auth_requests WHERE id = ?").run(id);
   })();
-  return json({ status: "approved", token, scope });
+  return json({ status: "approved", token });
 }
 
 export function beginGithubOAuth(purpose: "activate" | "admin", requestId?: string) {

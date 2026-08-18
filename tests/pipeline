@@ -15,11 +15,13 @@ printf '%s' 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQU
 digest="$(sha256sum "$source" | awk '{print $1}')"
 
 output="$(PR_MEDIA_ROOT="$media" PR_MEDIA_BASE_URL=https://media.example.test PR_MEDIA_PRUNE_COMMAND="$pruner" PR_MEDIA_OPTIMIZE=0 PR_MEDIA_USED_PERCENT=0 "$uploader" "$source")"
-[ "$output" = "![PR preview](https://media.example.test/${digest:0:2}/$digest.png)" ]
+[ "$output" = "![Media](https://media.example.test/${digest:0:2}/$digest.png)" ]
 [ -f "$media/${digest:0:2}/$digest.png" ]
 
-PR_MEDIA_ROOT="$media" PR_MEDIA_BASE_URL=https://media.example.test PR_MEDIA_PRUNE_COMMAND="$pruner" PR_MEDIA_OPTIMIZE=0 PR_MEDIA_USED_PERCENT=0 "$uploader" --repo sago-cream/example --pr 42 "$source" >/dev/null
-[ -f "$media/.refs/$digest/sago-cream/example/42" ]
+install -d "$media/.refs/$digest/sago-cream/example"
+touch "$media/.refs/$digest/sago-cream/example/42"
+PR_MEDIA_ROOT="$media" PR_MEDIA_USED_PERCENT=80 PR_MEDIA_HIGH_WATERMARK=70 PR_MEDIA_LOW_WATERMARK=60 PR_MEDIA_EMERGENCY_WATERMARK=90 PR_MEDIA_EMERGENCY_LOW_WATERMARK=50 "$pruner" >/dev/null
+[ -f "$media/${digest:0:2}/$digest.png" ]
 
 PR_MEDIA_ROOT="$media" "$pin" "$media/${digest:0:2}/$digest.png" >/dev/null
 [ -f "$media/.pins/$digest" ]
@@ -33,4 +35,4 @@ if PR_MEDIA_ROOT="$media" "$verify" >/dev/null 2>&1; then
   exit 1
 fi
 
-printf 'Media pipeline validates, references, pins, and verifies objects\n'
+printf 'Media pipeline preserves legacy PR media and verifies objects\n'
