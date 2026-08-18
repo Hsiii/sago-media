@@ -54,59 +54,18 @@ is_pinned() {
   [ -f "$media_root/.pins/$(digest_for_path "$1")" ]
 }
 
-pr_state_keys=()
-pr_state_values=()
-
-pr_state() {
-  local repo="$1"
-  local pr_number="$2"
-  local key="$repo#$pr_number"
-  local state
-  local index
-
-  for index in "${!pr_state_keys[@]}"; do
-    if [ "${pr_state_keys[$index]}" = "$key" ]; then
-      resolved_pr_state="${pr_state_values[$index]}"
-      return
-    fi
-  done
-
-  state="$(
-    gh api "repos/$repo/pulls/$pr_number" --jq .state 2>/dev/null ||
-      printf 'unknown'
-  )"
-  pr_state_keys[${#pr_state_keys[@]}]="$key"
-  pr_state_values[${#pr_state_values[@]}]="$state"
-  resolved_pr_state="$state"
-}
-
-is_normally_evictable() {
+is_protected() {
   local media_path="$1"
   local digest
   local reference
-  local relative
-  local repo_owner
-  local repo_name
-  local pr_number
 
-  is_pinned "$media_path" && return 1
+  is_pinned "$media_path" && return 0
   digest="$(digest_for_path "$media_path")"
 
   for reference in "$media_root/.refs/$digest"/*/*/*; do
-    [ -f "$reference" ] || continue
-    relative="${reference#"$media_root/.refs/$digest/"}"
-    repo_owner="${relative%%/*}"
-    relative="${relative#*/}"
-    repo_name="${relative%%/*}"
-    pr_number="${relative##*/}"
-
-    pr_state "$repo_owner/$repo_name" "$pr_number"
-    if [ "$resolved_pr_state" != closed ]; then
-      return 1
-    fi
+    [ ! -f "$reference" ] || return 0
   done
-
-  return 0
+  return 1
 }
 
 media_paths_by_age() {
@@ -157,7 +116,7 @@ if [ "$initial_usage" -lt "$high_watermark" ]; then
 fi
 
 while IFS= read -r media_path; do
-  is_normally_evictable "$media_path" || continue
+  is_protected "$media_path" && continue
   remove_media "$media_path" normal
   if [ "$(used_percent)" -le "$low_watermark" ]; then
     break
@@ -167,7 +126,7 @@ done < <(media_paths_by_age)
 if [ "$initial_usage" -ge "$emergency_watermark" ]; then
   while IFS= read -r media_path; do
     [ -f "$media_path" ] || continue
-    is_pinned "$media_path" && continue
+    is_protected "$media_path" && continue
     remove_media "$media_path" emergency
     if [ "$(used_percent)" -le "$emergency_low_watermark" ]; then
       break
@@ -179,9 +138,8 @@ find "$media_root" -mindepth 1 -type d ! -name .upload.lock.d -empty -delete
 
 if [ "$initial_usage" -ge "$emergency_watermark" ]; then
   if [ "$(used_percent)" -gt "$emergency_low_watermark" ]; then
-    printf 'Media usage remains above %s%% because no more unpinned media can be removed.\n' \
+    printf 'Media usage remains above %s%% because no more unprotected media can be removed.\n' \
       "$emergency_low_watermark" >&2
     exit 1
   fi
 fi
-

@@ -42,7 +42,7 @@ function Metric({
 
 export function Metrics({ data }: MetricsProps): JSX.Element {
     const { stats } = data;
-    const deviceNote = `${stats.activeDevices} active in the last 7 days${stats.legacyDevices > 0 ? ` / ${stats.legacyDevices} legacy` : ''}`;
+    const deviceNote = `${stats.activeDevices} active in the last 7 days`;
     return (
         <section aria-label='Key statistics' className='metrics'>
             <Metric

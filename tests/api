@@ -15,23 +15,17 @@ cleanup() {
 }
 trap cleanup EXIT
 
-token='test-token-abcdefghijklmnopqrstuvwxyz-0123456789'
-token_digest="$(printf '%s' "$token" | sha256sum | awk '{print $1}')"
-install -d "$work_dir/media" "$work_dir/tokens"
-printf '%s\n' "$token_digest" >"$work_dir/tokens/friend"
+install -d "$work_dir/media"
 
 install -d "$work_dir/media/.service"
-bun -e 'import { Database } from "bun:sqlite"; const db = new Database(process.argv[1]); db.exec("CREATE TABLE credentials (id TEXT PRIMARY KEY, token_hash TEXT NOT NULL UNIQUE, github_id TEXT NOT NULL, github_login TEXT NOT NULL, device_name TEXT NOT NULL, scope TEXT NOT NULL, created_at TEXT NOT NULL, last_used_at TEXT, revoked_at TEXT)"); const insert = db.query("INSERT INTO credentials(id, token_hash, github_id, github_login, device_name, scope, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)"); insert.run("mac-1", "hash-1", "1", "owner", "Hsi\u0027s MacBook Air (darwin)", "upload:any", "2026-01-01T00:00:00.000Z"); insert.run("mac-2", "hash-2", "1", "owner", "Hsi\u0027s MacBook Air", "upload:any", "2026-01-02T00:00:00.000Z"); insert.run("mac-3", "hash-3", "1", "owner", "Hsi\u0027s MacBook Air", "upload:any", "2026-01-03T00:00:00.000Z"); insert.run("mac-4", "hash-4", "1", "owner", "Hsi\u0027s MacBook Air", "upload:any", "2026-01-04T00:00:00.000Z")' "$work_dir/media/.service/media.sqlite"
+bun -e 'import { Database } from "bun:sqlite"; const db = new Database(process.argv[1]); db.exec("CREATE TABLE credentials (id TEXT PRIMARY KEY, token_hash TEXT NOT NULL UNIQUE, github_id TEXT NOT NULL, github_login TEXT NOT NULL, device_name TEXT NOT NULL, scope TEXT NOT NULL, created_at TEXT NOT NULL, last_used_at TEXT, revoked_at TEXT)"); const insert = db.query("INSERT INTO credentials(id, token_hash, github_id, github_login, device_name, scope, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)"); insert.run("mac-1", "hash-1", "1", "owner", "Hsi\u0027s MacBook Air (darwin)", "upload:any", "2026-01-01T00:00:00.000Z"); insert.run("mac-2", "hash-2", "1", "owner", "Hsi\u0027s MacBook Air", "upload:any", "2026-01-02T00:00:00.000Z"); insert.run("mac-3", "hash-3", "1", "owner", "Hsi\u0027s MacBook Air", "upload:any", "2026-01-03T00:00:00.000Z"); insert.run("mac-4", "hash-4", "1", "owner", "Hsi\u0027s MacBook Air", "upload:any", "2026-01-04T00:00:00.000Z"); insert.run("pr-only", "hash-5", "2", "friend", "Agent", "upload:pr", "2026-01-05T00:00:00.000Z")' "$work_dir/media/.service/media.sqlite"
 
 fake_uploader="$work_dir/fake-uploader"
 printf '%s\n' \
   '#!/bin/sh' \
-  'if [ "$#" = 1 ]; then [ -s "$1" ]; else' \
-  '  [ "$1" = "--repo" ] && [ "$2" = "sago-cream/example" ]' \
-  '  [ "$3" = "--pr" ] && [ "$4" = "42" ] && [ -s "$5" ]' \
-  'fi' \
+  '[ "$#" = 1 ] && [ -s "$1" ]' \
   "[ ! -f \"$work_dir/hang\" ] || sleep 2" \
-  'printf "![PR preview](https://media.example.test/test.png)\\n"' \
+  'printf "![Media](https://media.example.test/test.png)\\n"' \
   >"$fake_uploader"
 chmod +x "$fake_uploader"
 
@@ -43,7 +37,6 @@ printf '%s' \
 port="$((41000 + RANDOM % 20000))"
 PORT="$port" \
 PR_MEDIA_ROOT="$work_dir/media" \
-PR_MEDIA_TOKEN_DIR="$work_dir/tokens" \
 PR_MEDIA_UPLOAD_COMMAND="$fake_uploader" \
 PR_MEDIA_BASE_URL=https://media.example.test \
 PR_MEDIA_DAILY_BYTES_PER_TOKEN=1000 \
@@ -66,7 +59,7 @@ done
 curl --fail --silent "http://127.0.0.1:$port/health" >/dev/null
 
 device_counts="$(bun -e 'import { Database } from "bun:sqlite"; const db = new Database(process.argv[1]); const active = db.query("SELECT COUNT(*) AS count FROM credentials WHERE revoked_at IS NULL").get().count; const revoked = db.query("SELECT COUNT(*) AS count FROM credentials WHERE revoked_at IS NOT NULL").get().count; const name = db.query("SELECT device_name FROM credentials WHERE revoked_at IS NULL").get().device_name; console.log(`${active}:${revoked}:${name}`)' "$work_dir/media/.service/media.sqlite")"
-[ "$device_counts" = "1:3:Hsi's MacBook Air" ]
+[ "$device_counts" = "1:4:Hsi's MacBook Air" ]
 
 [ "$(curl --silent --output /dev/null --write-out '%{http_code}' "http://127.0.0.1:$port/admin/")" = 401 ]
 
@@ -89,27 +82,10 @@ rotated_counts="$(bun -e 'import { Database } from "bun:sqlite"; const db = new 
 status="$(
   curl --silent --output "$work_dir/unauthorized" --write-out '%{http_code}' \
     --request POST \
-    --header 'X-PR-Media-Repo: sago-cream/example' \
-    --header 'X-PR-Media-PR: 42' \
-    --header 'X-PR-Media-Filename: preview.png' \
     --data-binary "@$source_file" \
     "http://127.0.0.1:$port/api/upload"
 )"
-[ "$status" = 401 ]
-
-status="$(
-  curl --silent --output "$work_dir/uploaded" --write-out '%{http_code}' \
-    --request POST \
-    --header "Authorization: Bearer $token" \
-    --header 'X-PR-Media-Repo: sago-cream/example' \
-    --header 'X-PR-Media-PR: 42' \
-    --header 'X-PR-Media-Filename: preview.png' \
-    --data-binary "@$source_file" \
-    "http://127.0.0.1:$port/api/upload"
-)"
-[ "$status" = 201 ]
-grep -Fqx '![PR preview](https://media.example.test/test.png)' \
-  "$work_dir/uploaded"
+[ "$status" = 404 ]
 
 owner_token='owner-token-abcdefghijklmnopqrstuvwxyz-0123456789'
 owner_digest="$(printf '%s' "$owner_token" | sha256sum | awk '{print $1}')"
@@ -128,36 +104,14 @@ rm "$work_dir/hang"
 status="$(curl --silent --output "$work_dir/retried" --write-out '%{http_code}' --request POST --header "Authorization: Bearer $timeout_token" --header 'X-Media-Filename: preview.png' --data-binary "@$source_file" "http://127.0.0.1:$port/v1/uploads")"
 [ "$status" = 201 ]
 
-status="$(
-  curl --silent --output "$work_dir/quota" --write-out '%{http_code}' \
-    --request POST \
-    --header "Authorization: Bearer $token" \
-    --header 'X-PR-Media-Repo: sago-cream/example' \
-    --header 'X-PR-Media-PR: 42' \
-    --header 'X-PR-Media-Filename: preview.png' \
-    --data-binary "@$source_file" \
-    "http://127.0.0.1:$port/api/upload"
-)"
-[ "$status" = 429 ]
-
-usage="$(bun -e 'import { Database } from "bun:sqlite"; const db = new Database(process.argv[1]); console.log(db.query("SELECT uploads FROM usage WHERE actor = ?").get("legacy-friend").uploads)' "$work_dir/media/.service/media.sqlite")"
-[ "$usage" = 1 ]
-
 session='test-session-abcdefghijklmnopqrstuvwxyz-0123456789'
 session_digest="$(printf '%s' "$session" | sha256sum | awk '{print $1}')"
 bun -e 'import { Database } from "bun:sqlite"; const db = new Database(process.argv[1]); db.query("INSERT INTO sessions(token_hash, github_id, expires_at) VALUES (?, ?, ?)").run(process.argv[2], "1", new Date(Date.now() + 60000).toISOString())' "$work_dir/media/.service/media.sqlite" "$session_digest"
 
 curl --fail --silent --header "Cookie: media_session=$session" "http://127.0.0.1:$port/v1/admin/overview" >"$work_dir/dashboard"
-grep -Fq '"registeredDevices":4' "$work_dir/dashboard"
+grep -Fq '"registeredDevices":3' "$work_dir/dashboard"
 grep -Fq '"storedMediaBytes":0' "$work_dir/dashboard"
 grep -Fq '"history":[' "$work_dir/dashboard"
-
-status="$(curl --silent --output /dev/null --write-out '%{http_code}' --request POST --header "Cookie: media_session=$session" --header "Origin: http://127.0.0.1:$port" "http://127.0.0.1:$port/v1/admin/credentials/owner/scope/upload:pr")"
-[ "$status" = 204 ]
-[ "$(bun -e 'import { Database } from "bun:sqlite"; const db = new Database(process.argv[1]); console.log(db.query("SELECT scope FROM credentials WHERE id = ?").get("owner").scope)' "$work_dir/media/.service/media.sqlite")" = "upload:pr" ]
-status="$(curl --silent --output /dev/null --write-out '%{http_code}' --request POST --header "Cookie: media_session=$session" --header "Origin: http://127.0.0.1:$port" "http://127.0.0.1:$port/v1/admin/credentials/owner/scope/upload:any")"
-[ "$status" = 204 ]
-[ "$(bun -e 'import { Database } from "bun:sqlite"; const db = new Database(process.argv[1]); console.log(db.query("SELECT scope FROM credentials WHERE id = ?").get("owner").scope)' "$work_dir/media/.service/media.sqlite")" = "upload:any" ]
 
 status="$(curl --silent --output "$work_dir/cross-origin" --write-out '%{http_code}' --request POST --header "Cookie: media_session=$session" --header 'Origin: https://attacker.example' "http://127.0.0.1:$port/admin/requests/missing/deny")"
 [ "$status" = 403 ]
@@ -168,4 +122,4 @@ status="$(curl --silent --output "$work_dir/same-origin-private" --write-out '%{
 status="$(curl --silent --output "$work_dir/cross-origin-private" --write-out '%{http_code}' --request POST --header "Cookie: media_session=$session" --header 'Origin: null' --header 'Sec-Fetch-Site: cross-site' "http://127.0.0.1:$port/admin/requests/missing/deny")"
 [ "$status" = 403 ]
 
-printf 'Media API supports device login, scoped uploads, bounded quotas, and same-origin administration\n'
+printf 'Media API supports device login, bounded uploads, and same-origin administration\n'

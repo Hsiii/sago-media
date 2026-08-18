@@ -13,7 +13,6 @@ export interface Device {
     id: string;
     deviceName: string;
     githubLogin: string;
-    scope: 'upload:pr' | 'upload:any';
     createdAt: string;
     lastUsedAt?: string;
     bytes: number;
@@ -25,7 +24,6 @@ export interface DashboardData {
     stats: {
         registeredDevices: number;
         activeDevices: number;
-        legacyDevices: number;
         totalUploads: number;
         totalBytes: number;
         todayUploads: number;

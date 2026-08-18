@@ -81,6 +81,7 @@ function migrateCredentialDevices() {
 }
 
 migrateCredentialDevices();
+database.query("UPDATE credentials SET revoked_at = ? WHERE scope = 'upload:pr' AND revoked_at IS NULL").run(now());
 
 export function cleanExpired() {
   database.query("DELETE FROM auth_requests WHERE expires_at < ?").run(now());

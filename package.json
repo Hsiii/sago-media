@@ -1,26 +1,20 @@
 {
   "name": "sago-media-workspace",
-  "version": "0.2.3",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "workspaces": [
-    "cli",
     "web"
   ],
   "scripts": {
-    "dev": "PR_MEDIA_ROOT=.data/media PR_MEDIA_TOKEN_DIR=.data/tokens MEDIA_ADMIN_TOKEN=local-development bun run --parallel dev:server dev:web",
+    "dev": "PR_MEDIA_ROOT=.data/media MEDIA_ADMIN_TOKEN=local-development bun run --parallel dev:server dev:web",
     "dev:server": "bun --watch server/index.ts",
     "dev:web": "bun run --cwd web dev",
     "build": "bun run build:web && bun run build:server",
     "build:server": "bun build server/index.ts --target=bun --outfile=dist/server.js",
     "build:web": "bun run --cwd web build",
-    "check": "bun run test && bun run check:web && bun run build:server && npm pack --dry-run --workspace cli",
+    "check": "bun run test && bun run check:web && bun run build:server",
     "check:web": "bun run --cwd web check",
-    "release": "cd cli && release-it --config ../release-it.config.cjs",
-    "test": "bash tests/api && bash tests/cli && bash tests/pipeline",
-    "pack:cli": "npm pack --workspace cli"
-  },
-  "devDependencies": {
-    "release-it": "20.2.0"
+    "test": "bash tests/api && bash tests/pipeline"
   }
 }

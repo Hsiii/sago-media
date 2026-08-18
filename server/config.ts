@@ -9,7 +9,6 @@ function positiveInteger(name: string, fallback: number) {
 export const config = {
   port: positiveInteger("PORT", 3000),
   mediaRoot: process.env.PR_MEDIA_ROOT ?? "/srv/pr-media",
-  tokenDirectory: process.env.PR_MEDIA_TOKEN_DIR ?? "/run/secrets/pr-media-tokens",
   uploadCommand: process.env.PR_MEDIA_UPLOAD_COMMAND ?? "/usr/local/bin/pr-media-upload",
   baseUrl: (process.env.PR_MEDIA_BASE_URL ?? "").replace(/\/$/, ""),
   githubClientId: process.env.MEDIA_GITHUB_CLIENT_ID ?? "",
