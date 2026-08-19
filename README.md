@@ -1,6 +1,6 @@
 # Sago Media
 
-Self-hosted media upload and processing backend for [Sago Drop](https://github.com/sago-cream/sago-drop). It provides device authorization, bounded uploads, media optimization, public share links, and an administration dashboard.
+Self-hosted media upload backend for [Sago Drop](https://github.com/sago-cream/sago-drop). It provides device authorization, bounded uploads, image optimization, public share links, and an administration dashboard. Videos are normalized locally by Sago Drop before upload; the server validates and stores them without transcoding.
 
 The former npm CLI and pull-request upload API were removed in v1.0.0. Use [`gh-image`](https://github.com/drogers0/gh-image) or GitHub's editor for pull-request attachments.
 
@@ -12,6 +12,9 @@ The former npm CLI and pull-request upload API were removed in v1.0.0. Use [`gh-
 - upload limits from the existing `PR_MEDIA_*` variables, including `PR_MEDIA_UPLOAD_TIMEOUT_MS`
 
 The GitHub OAuth callback is `$MEDIA_PUBLIC_URL/auth/github/callback`.
+
+Video uploads must be H.264/AAC MP4 files using `yuv420p` at no more than
+1920x1080 in landscape or 1080x1920 in portrait.
 
 ## Workspace
 

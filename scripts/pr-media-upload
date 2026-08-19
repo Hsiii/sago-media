@@ -10,6 +10,33 @@ file_size() {
   stat -c %s -- "$1" 2>/dev/null || stat -f %z -- "$1"
 }
 
+invalid_video() {
+  printf 'Video must be a prepared 1080p H.264/AAC MP4.\n' >&2
+  exit 1
+}
+
+validate_video() {
+  local video_codec pixel_format dimensions width height audio_codecs codec
+  video_codec="$(ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "$source_path")" || invalid_video
+  pixel_format="$(ffprobe -v error -select_streams v:0 -show_entries stream=pix_fmt -of default=noprint_wrappers=1:nokey=1 "$source_path")" || invalid_video
+  dimensions="$(ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0:s=x "$source_path")" || invalid_video
+  audio_codecs="$(ffprobe -v error -select_streams a -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "$source_path")" || invalid_video
+
+  width="${dimensions%x*}"
+  height="${dimensions#*x}"
+  [ "$video_codec" = h264 ] || invalid_video
+  [ "$pixel_format" = yuv420p ] || invalid_video
+  case "$width" in '' | *[!0-9]*) invalid_video ;; esac
+  case "$height" in '' | *[!0-9]*) invalid_video ;; esac
+  if ! { [ "$width" -le 1920 ] && [ "$height" -le 1080 ]; } &&
+     ! { [ "$width" -le 1080 ] && [ "$height" -le 1920 ]; }; then
+    invalid_video
+  fi
+  while IFS= read -r codec; do
+    [ -z "$codec" ] || [ "$codec" = aac ] || invalid_video
+  done <<<"$audio_codecs"
+}
+
 media_root="${PR_MEDIA_ROOT:-/srv/pr-media}"
 base_url="${PR_MEDIA_BASE_URL:?Set PR_MEDIA_BASE_URL to the public media URL}"
 base_url="${base_url%/}"
@@ -25,9 +52,11 @@ mime_type="$(file --brief --mime-type -- "$source_path")"
 case "$mime_type:$extension" in
   image/gif:gif | image/jpeg:jpg | image/jpeg:jpeg | image/png:png | image/webp:webp)
     limit="$image_limit"
+    should_optimize=1
     ;;
-  video/mp4:mp4 | video/webm:webm)
+  video/mp4:mp4)
     limit="$video_limit"
+    should_optimize=0
     ;;
   *)
     printf 'Unsupported media type or mismatched extension: %s (.%s)\n' "$mime_type" "$extension" >&2
@@ -36,6 +65,7 @@ case "$mime_type:$extension" in
 esac
 
 [ "$(file_size "$source_path")" -le "$limit" ] || { printf 'Media exceeds the upload limit.\n' >&2; exit 1; }
+[ "$should_optimize" = 1 ] || validate_video
 
 temporary=
 fallback_lock=
@@ -48,7 +78,7 @@ cleanup() {
 trap cleanup EXIT
 
 optimized_path="$source_path"
-if [ "${PR_MEDIA_OPTIMIZE:-1}" = 1 ]; then
+if [ "$should_optimize" = 1 ] && [ "${PR_MEDIA_OPTIMIZE:-1}" = 1 ]; then
   optimized_path="$("$optimizer" "$source_path" "$temporary_dir/media")"
   extension="${optimized_path##*.}"
 fi
