@@ -18,6 +18,40 @@ output="$(PR_MEDIA_ROOT="$media" PR_MEDIA_BASE_URL=https://media.example.test PR
 [ "$output" = "![Media](https://media.example.test/${digest:0:2}/$digest.png)" ]
 [ -f "$media/${digest:0:2}/$digest.png" ]
 
+fake_bin="$work/bin"
+video_source="$work/preview.mp4"
+video_media="$work/video-media"
+install -d "$fake_bin"
+printf '%s\n' \
+  '#!/usr/bin/env bash' \
+  'selection=' \
+  'entries=' \
+  'while [ "$#" -gt 0 ]; do' \
+  '  case "$1" in' \
+  '    -select_streams) selection="$2"; shift ;;' \
+  '    -show_entries) entries="$2"; shift ;;' \
+  '  esac' \
+  '  shift' \
+  'done' \
+  'case "$selection:$entries" in' \
+  '  v:0:stream=codec_name) printf '\''%s\n'\'' "${FAKE_VIDEO_CODEC:-h264}" ;;' \
+  '  v:0:stream=pix_fmt) printf '\''yuv420p\n'\'' ;;' \
+  '  v:0:stream=width,height) printf '\''1920x1080\n'\'' ;;' \
+  '  a:stream=codec_name) printf '\''aac\n'\'' ;;' \
+  'esac' \
+  >"$fake_bin/ffprobe"
+printf '%s\n' '#!/usr/bin/env bash' 'exit 99' >"$fake_bin/fail-optimizer"
+chmod +x "$fake_bin/ffprobe" "$fake_bin/fail-optimizer"
+printf '\x00\x00\x00\x18ftypisom\x00\x00\x02\x00isomiso2mp41' >"$video_source"
+video_digest="$(sha256sum "$video_source" | awk '{print $1}')"
+video_output="$(PATH="$fake_bin:$PATH" PR_MEDIA_ROOT="$video_media" PR_MEDIA_BASE_URL=https://media.example.test PR_MEDIA_PRUNE_COMMAND="$pruner" PR_MEDIA_OPTIMIZE_COMMAND="$fake_bin/fail-optimizer" PR_MEDIA_USED_PERCENT=0 "$uploader" "$video_source")"
+[ "$video_output" = "https://media.example.test/${video_digest:0:2}/$video_digest.mp4" ]
+[ -f "$video_media/${video_digest:0:2}/$video_digest.mp4" ]
+if PATH="$fake_bin:$PATH" FAKE_VIDEO_CODEC=hevc PR_MEDIA_ROOT="$video_media" PR_MEDIA_BASE_URL=https://media.example.test PR_MEDIA_PRUNE_COMMAND="$pruner" PR_MEDIA_USED_PERCENT=0 "$uploader" "$video_source" >/dev/null 2>&1; then
+  printf 'media pipeline accepted an unprepared video\n' >&2
+  exit 1
+fi
+
 install -d "$media/.refs/$digest/sago-cream/example"
 touch "$media/.refs/$digest/sago-cream/example/42"
 PR_MEDIA_ROOT="$media" PR_MEDIA_USED_PERCENT=80 PR_MEDIA_HIGH_WATERMARK=70 PR_MEDIA_LOW_WATERMARK=60 PR_MEDIA_EMERGENCY_WATERMARK=90 PR_MEDIA_EMERGENCY_LOW_WATERMARK=50 "$pruner" >/dev/null
@@ -35,4 +69,4 @@ if PR_MEDIA_ROOT="$media" "$verify" >/dev/null 2>&1; then
   exit 1
 fi
 
-printf 'Media pipeline preserves legacy PR media and verifies objects\n'
+printf 'Media pipeline stores prepared videos and verifies objects\n'

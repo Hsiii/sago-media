@@ -6,7 +6,7 @@ import { config } from "./config";
 import { database } from "./database";
 import { json, response } from "./shared";
 
-const supportedExtensions = new Set(["gif", "jpeg", "jpg", "mp4", "png", "webm", "webp"]);
+const supportedExtensions = new Set(["gif", "jpeg", "jpg", "mp4", "png", "webp"]);
 let activeUploads = 0;
 
 export function getActiveUploads() { return activeUploads; }
